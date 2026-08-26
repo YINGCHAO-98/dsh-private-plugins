@@ -18,7 +18,7 @@ window.__ModuleLoader__.load({
     const UPDATES_PATH = '/dsh-plugin-manager/updates'
 
     const en = {
-      tab: 'Plugin manager',
+      nav: 'Private & local plugins',
       intro: 'Import plugins from your private git repositories or from local files — all in one place.',
       repos: 'Private repositories',
       reposHint: 'Add your own git repositories (public or private). Installation uses this machine\'s git credentials, so private repos work once SSH keys or a credential helper are set up.',
@@ -69,7 +69,7 @@ window.__ModuleLoader__.load({
     }
 
     const zh = {
-      tab: '插件管理',
+      nav: '本地与私有插件',
       intro: '从你自己的私有 Git 仓库或本地文件导入插件——统一在一个界面里完成。',
       repos: '我的私有仓库',
       reposHint: '添加你自己的 Git 仓库（公开或私有）。安装走本机 git 凭据，配好 SSH key 或凭据后即可直接装私有仓库。',
@@ -813,7 +813,7 @@ window.__ModuleLoader__.load({
       return React.createElement(
         'section',
         { className: 'dshPm' },
-        React.createElement('h2', null, t('tab')),
+        React.createElement('h2', null, t('nav')),
         React.createElement('p', { className: 'dshPmIntro' }, t('intro')),
         hostStale
           ? React.createElement(
@@ -876,13 +876,15 @@ window.__ModuleLoader__.load({
         'dsh-plugin-manager: copy dictionaries'
       )
       const t = ctx.locale.bind(NS)
-      ctx.slots.inject('settings.plugins.tab', () =>
+      ctx.slots.inject('settings.section', () =>
         ctx.slots.register(
           {
-            name: 'settings.plugins.tab',
+            name: 'settings.section',
             id: 'plugin-manager',
-            order: 35,
-            label: () => t('tab'),
+            // Keep this immediately after dsh-market (order 40) when it is
+            // installed, while remaining a clear first-class entry on its own.
+            order: 41,
+            label: () => t('nav'),
             inject: () => ({ t }),
           },
           PluginManagerPage

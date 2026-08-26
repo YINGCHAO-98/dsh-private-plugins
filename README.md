@@ -1,12 +1,12 @@
 # dsh-plugin-manager
 
-统一插件管理器：在 **设置 → 插件** 里新增一个「插件管理」标签页，把 **从自己的私有 Git 仓库安装插件** 与 **本地插件导入** 放在同一个界面，并附带已安装插件的查看/移除。
+本地与私有插件：在 **设置** 侧栏新增独立的「本地与私有插件」入口（与「插件市场」并列），把 **从自己的私有 Git 仓库安装插件** 与 **本地插件导入** 放在同一个界面，并附带已安装插件的查看/移除。
 
 - 我的私有仓库：添加你自己拥有的 Git 仓库（公开或私有），一键 `git clone` 安装；仓库列表持久化在 profile 里，随时复用。私有仓库的访问完全取决于本机 git 凭据（SSH key / credential helper / token），与普通 `git clone` 一致。
 - 本地导入：
   - 上传 `.tgz / .tar.gz / .tar` 压缩包（浏览器通用，`npm pack` 产物可直接上传）；
   - 选择本地插件文件夹（DSH Desktop 原生目录选择器，或支持文件夹上传的浏览器）。
-- 已安装列表：显示版本、来源 spec、是否为配置层 bundle，可移除（核心包与自身受保护）。
+- 已安装列表：仅显示由本页从私有仓库或本地导入的插件（不重复显示插件市场已安装项），显示版本、来源 spec、是否为配置层 bundle，可移除。
 - 所有变更通过 `dsh plugin --profile <p> add|remove <spec>` 执行，与 DSH Desktop / dsh-market 同一安装链路；完成后提示重启 Harness 生效（桌面版提供一键重启按钮）。
 
 ## 安装
@@ -33,7 +33,7 @@ dsh plugin --profile web add /absolute/path/to/dsh-plugin-manager
 dsh plugin --profile web add dsh-plugin-manager
 ```
 
-DSH Desktop 使用 `web` profile（`$DSH_HOME/profiles/web`，默认 `~/.dsh`），装完后从菜单 **Harness → 重启 Harness** 生效。打开 **设置 → 插件 → 插件管理** 即可使用。
+DSH Desktop 使用 `web` profile（`$DSH_HOME/profiles/web`，默认 `~/.dsh`），装完后从菜单 **Harness → 重启 Harness** 生效。打开 **设置 → 本地与私有插件** 即可使用；安装了 `dsh-market` 时，该入口紧随「插件市场」。
 
 ## 私有仓库支持
 
@@ -53,7 +53,7 @@ DSH Desktop 使用 `web` profile（`$DSH_HOME/profiles/web`，默认 `~/.dsh`）
 
 ## 更新提醒
 
-打开「插件管理」页面会自动检查已安装插件的更新（结果缓存 1 小时，可点「检查更新」强制刷新）：
+打开「本地与私有插件」页面会自动检查由本页管理的插件更新（结果缓存 1 小时，可点「检查更新」强制刷新）；插件市场安装的项目仅在「插件市场」内显示：
 
 - **npm 来源**（registry 安装）：查询本机配置的 npm registry（`npm_config_registry`，默认 npmjs.org）的 `dist-tags.latest`，与已装版本比较。
 - **git 来源**（私有仓库）：对比 `pnpm-lock.yaml` 里记录的已解析 commit 与 `git ls-remote` 的远端 HEAD/分支 commit。私有仓库若本机凭据不可用，显示「更新状态未知」，**不会误报**。

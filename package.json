@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-manager",
   "version": "0.1.0",
-  "description": "Unified visual plugin manager for DeepSeek Harness — import plugins from your private git repositories or local files (tarball upload / folder picker) in one settings page. · DSH 统一插件管理器：私有仓库 + 本地导入，同一个界面。",
+  "description": "Private and local plugin imports for DeepSeek Harness — import from private git repositories or local files (tarball upload / folder picker) from a first-class Settings entry. · DSH 本地与私有插件：私有仓库 + 本地导入，设置内独立入口。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -21,8 +21,7 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-settings-plugins"
+        "@deepseek-ai/dsh-client-ui-settings"
       ],
       "platform": "web"
     }

@@ -23,6 +23,7 @@ import {
   isDshProfileName,
   profileDir,
   readInstalled,
+  selectManagedInstalled,
   CORE_BUNDLES,
   SELF_NAME,
   isDirectory,
@@ -156,6 +157,20 @@ test('readInstalled lists community deps with annotations', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('selectManagedInstalled excludes market plugins and the manager itself', () => {
+  const installed = [
+    { name: SELF_NAME, spec: 'file:../dsh-plugin-manager' },
+    { name: 'market-plugin', spec: '^1.2.3' },
+    { name: 'private-plugin', spec: 'git+ssh://git@example.com/me/private-plugin.git' },
+    { name: 'folder-plugin', spec: 'link:/Users/me/plugins/folder-plugin' },
+  ]
+  const repos = [{ spec: 'git+ssh://git@example.com/me/private-plugin.git' }]
+  assert.deepEqual(
+    selectManagedInstalled(installed, repos).map((plugin) => plugin.name),
+    ['private-plugin', 'folder-plugin']
+  )
 })
 
 test('normalizeRepoInput converts common forms to pnpm git specs', () => {
