@@ -4,6 +4,8 @@
 
 > 社区维护的 DSH Plugin，与 DeepSeek AI 无隶属关系，也不代表 DeepSeek AI 官方。
 
+[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/your-owner/your-plugin-slug)
+
 ![私有插件管理界面](docs/images/private-plugins-overview.png)
 
 - 导入方式：**云端仓库** 与 **本地文件** 分别位于独立卡片——可添加公开/私有 Git 仓库（可选自定义名称）、上传 `.tgz / .tar.gz / .tar` 压缩包，或选择本地插件文件夹。
