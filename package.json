@@ -1,7 +1,7 @@
 {
-  "name": "dsh-plugin-manager",
-  "version": "0.1.1",
-  "description": "Private and local plugin imports for DeepSeek Harness — import from private git repositories or local files (tarball upload / folder picker) from a first-class Settings entry. · DSH 本地与私有插件：私有仓库 + 本地导入，设置内独立入口。",
+  "name": "dsh-private-plugins",
+  "version": "0.1.5",
+  "description": "Private plugin imports for DeepSeek Harness — import from private git repositories or local files (tarball upload / folder picker) from a first-class Settings entry. · DSH 私有插件：私有仓库 + 本地导入，设置内独立入口。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -11,7 +11,7 @@
     "harness",
     "dsh",
     "dsh-plugin",
-    "plugin-manager",
+    "private-plugins",
     "market"
   ],
   "dsh": {
@@ -20,6 +20,8 @@
     },
     "client": {
       "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-settings"
       ],

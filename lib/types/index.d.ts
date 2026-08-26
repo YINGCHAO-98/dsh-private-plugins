@@ -1,5 +1,5 @@
 /**
- * Minimal type surface for dsh-plugin-manager. The plugin is consumed by the
+ * Minimal type surface for dsh-private-plugins. The plugin is consumed by the
  * Cordis loader at runtime; these declarations exist so TypeScript consumers
  * can import the entry without `any`.
  */

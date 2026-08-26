@@ -1,12 +1,12 @@
 /**
- * Unit tests for the pure logic of dsh-plugin-manager: validators, profile
+ * Unit tests for the pure logic of dsh-private-plugins: validators, profile
  * resolution, manifest reads and private-repository handling. No child
  * processes, no network — the install path itself is exercised end-to-end
  * by the live profile install (see README).
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -24,6 +24,7 @@ import {
   profileDir,
   readInstalled,
   selectManagedInstalled,
+  isManagedSpec,
   CORE_BUNDLES,
   SELF_NAME,
   isDirectory,
@@ -46,10 +47,19 @@ import {
   gitHeadCommit,
   gitRefOf,
   gitUrlOf,
+  localGitDirty,
+  localSourcePath,
   lockfileCommit,
   npmNameOf,
   registryPath,
 } from '../lib/updates.js'
+import {
+  readPatchState,
+  rowIdsForPackage,
+  isPluginDisabled,
+  setPluginEnabled,
+  patchFilePath,
+} from '../lib/toggle.js'
 
 test('isCloudSpec accepts npm names, pinned ranges and github sources', () => {
   for (const spec of [
@@ -140,7 +150,7 @@ test('readInstalled lists community deps with annotations', () => {
         dependencies: {
           [CORE_BUNDLES.values().next().value]: '^0.1.1',
           'dsh-dream-skin': '^0.4.11',
-          [SELF_NAME]: 'file:../dsh-plugin-manager',
+          [SELF_NAME]: 'file:../dsh-private-plugins',
         },
         dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', SELF_NAME] } },
       })
@@ -159,17 +169,46 @@ test('readInstalled lists community deps with annotations', () => {
   }
 })
 
-test('selectManagedInstalled excludes market plugins and the manager itself', () => {
+test('isManagedSpec covers local imports and cloud git installs only', () => {
+  for (const spec of [
+    'file:../b',
+    'file:/abs/x.tgz',
+    'link:../x',
+    '/abs/path',
+    'git+https://github.com/me/repo.git',
+    'git+ssh://git@github.com/me/repo.git#main',
+    'github:me/repo',
+    'gitlab:me/repo#v1',
+    'git@github.com:me/repo.git',
+  ]) {
+    assert.equal(isManagedSpec(spec), true, spec)
+  }
+  for (const spec of [
+    '',
+    'dsh-dream-skin',
+    'dsh-dream-skin@^0.4.11',
+    '@scope/x@1.2.3',
+    'weird stuff',
+  ]) {
+    assert.equal(isManagedSpec(spec), false, JSON.stringify(spec))
+  }
+})
+
+test('selectManagedInstalled keeps local + cloud installs and excludes market plugins', () => {
   const installed = [
-    { name: SELF_NAME, spec: 'file:../dsh-plugin-manager' },
+    { name: SELF_NAME, spec: 'file:../dsh-private-plugins' },
     { name: 'market-plugin', spec: '^1.2.3' },
     { name: 'private-plugin', spec: 'git+ssh://git@example.com/me/private-plugin.git' },
+    { name: 'saved-only-plugin', spec: 'git+https://github.com/me/saved.git#main' },
     { name: 'folder-plugin', spec: 'link:/Users/me/plugins/folder-plugin' },
   ]
-  const repos = [{ spec: 'git+ssh://git@example.com/me/private-plugin.git' }]
+  // The repos argument is no longer required for inclusion: cloud git
+  // installs stay listed even when their repo was removed from the saved
+  // list, so 已安装插件 covers every local and cloud install.
+  const repos = []
   assert.deepEqual(
     selectManagedInstalled(installed, repos).map((plugin) => plugin.name),
-    ['private-plugin', 'folder-plugin']
+    ['private-plugin', 'saved-only-plugin', 'folder-plugin']
   )
 })
 
@@ -178,14 +217,14 @@ test('normalizeRepoInput converts common forms to pnpm git specs', () => {
     normalizeRepoInput('https://github.com/me/my-plugin'),
     {
       spec: 'git+https://github.com/me/my-plugin.git',
-      label: 'github.com/me/my-plugin',
+      label: 'my-plugin',
     }
   )
   assert.deepEqual(
     normalizeRepoInput('https://github.com/me/my-plugin.git#main'),
     {
       spec: 'git+https://github.com/me/my-plugin.git#main',
-      label: 'github.com/me/my-plugin',
+      label: 'my-plugin',
     }
   )
   assert.equal(
@@ -254,7 +293,7 @@ test('repo list persists through add/remove round trips', async () => {
     // A fresh load reads the same file (persistence, not just memory).
     const reloaded = await loadRepos(dir)
     assert.equal(reloaded.length, 1)
-    assert.equal(reloaded[0].label, 'github.com:me/other')
+    assert.equal(reloaded[0].label, 'other')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -262,7 +301,7 @@ test('repo list persists through add/remove round trips', async () => {
 
 test('createRepo derives a label from the address when none given', () => {
   const repo = createRepo('https://github.com/me/my-plugin')
-  assert.equal(repo.label, 'github.com/me/my-plugin')
+  assert.equal(repo.label, 'my-plugin')
   assert.ok(repo.id.length > 0)
   const labelled = createRepo('https://github.com/me/my-plugin', { label: '我的插件' })
   assert.equal(labelled.label, '我的插件')
@@ -367,6 +406,59 @@ test('gitCloneUrl strips the pnpm git+ protocol prefix', () => {
   assert.equal(gitCloneUrl('github:me/repo'), 'github:me/repo')
 })
 
+test('local Git status identifies local worktrees and their dirty state', () => {
+  const profile = '/tmp/dsh/profiles/web'
+  const calls = []
+  const clean = localGitDirty('link:../my-plugin', profile, {
+    spawnSync: (file, args) => {
+      calls.push([file, args])
+      return { status: 0, stdout: '' }
+    },
+  })
+  assert.equal(clean, false)
+  assert.equal(localSourcePath('link:../my-plugin', profile), '/tmp/dsh/profiles/my-plugin')
+  assert.deepEqual(calls[0], [
+    'git',
+    ['-C', '/tmp/dsh/profiles/my-plugin', 'status', '--porcelain', '--untracked-files=normal'],
+  ])
+
+  assert.equal(
+    localGitDirty('file:/Users/me/plugin', profile, {
+      spawnSync: () => ({ status: 0, stdout: ' M client.js\n?? new-file.js\n' }),
+    }),
+    true
+  )
+  assert.equal(
+    localGitDirty('file:/Users/me/plugin.tgz', profile, {
+      spawnSync: () => ({ status: 128, stdout: '' }),
+    }),
+    undefined
+  )
+})
+
+test('checkUpdates treats a linked Git worktree as already current', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-local-git-'))
+  try {
+    const summary = await checkUpdates(dir, {
+      force: true,
+      now: 1000,
+      installed: [{ name: 'dsh-local', spec: 'link:/Users/me/plugin', version: '0.1.0' }],
+      spawnSync: () => ({ status: 0, stdout: ' M client.js\n' }),
+    })
+    assert.deepEqual(summary.updates, [])
+    assert.deepEqual(summary.checked, ['dsh-local'])
+    assert.deepEqual(summary.byName['dsh-local'], {
+      kind: 'local',
+      available: false,
+      known: true,
+      latest: 'dirty',
+      current: '0.1.0',
+    })
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('checkUpdates reports available/unknown/local and honours the cache', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-updates-'))
   try {
@@ -411,8 +503,33 @@ test('checkUpdates reports available/unknown/local and honours the cache', async
     )
     assert.equal(first.updates[0].current, '1.0.0')
     assert.equal(first.updates[0].latest, '1.2.0')
-    assert.deepEqual(first.unknown.sort(), ['dsh-c', 'dsh-git'])
-    assert.deepEqual(first.checked, ['dsh-b'])
+    assert.deepEqual(first.unknown.sort(), ['dsh-b', 'dsh-c', 'dsh-git'])
+    assert.deepEqual(first.checked, [])
+
+    // byName carries the per-plugin state the UI merges into every row.
+    assert.deepEqual(first.byName['dsh-a'], {
+      kind: 'npm',
+      available: true,
+      known: true,
+      latest: '1.2.0',
+      current: '1.0.0',
+    })
+    assert.deepEqual(first.byName['dsh-b'], {
+      kind: 'local',
+      available: false,
+      known: false,
+      latest: undefined,
+      current: '0.1.0',
+    })
+    assert.deepEqual(first.byName['dsh-c'], {
+      kind: 'npm',
+      available: false,
+      known: false,
+      latest: undefined,
+      current: '0.5.0',
+    })
+    assert.equal(first.byName['dsh-git'].kind, 'git')
+    assert.equal(first.byName['dsh-git'].available, false)
 
     // Cached: no extra fetches.
     const second = await checkUpdates(dir, { fetchImpl, spawnSync, now: 1000 + 60_000 })
@@ -481,6 +598,130 @@ test('isDirectory checks the filesystem', () => {
   try {
     assert.equal(isDirectory(dir), true)
     assert.equal(isDirectory(join(dir, 'missing')), false)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('readPatchState parses disables, force-enables and inserts', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-patch-'))
+  try {
+    const file = patchFilePath(dir)
+    writeFileSync(
+      file,
+      [
+        '# header',
+        '- id: dsh-a',
+        '  disabled: true',
+        '- id: dsh-b',
+        '  disabled: false',
+        '- insert:',
+        '    - id: dsh-c',
+        '      name: dsh-c',
+      ].join('\n')
+    )
+    const state = readPatchState(file)
+    assert.deepEqual(state.disables, ['dsh-a'])
+    assert.deepEqual(state.forced, ['dsh-b'])
+    assert.deepEqual(state.inserts, ['dsh-c'])
+    assert.deepEqual(readPatchState(join(dir, 'missing.yml')), {
+      disables: [],
+      forced: [],
+      inserts: [],
+    })
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('rowIdsForPackage reads inserted ids and falls back to the package name', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-rows-'))
+  try {
+    // Declared bundle patch with two inserted rows.
+    mkdirSync(join(dir, 'node_modules', 'dsh-plug'), { recursive: true })
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh-plug', 'package.json'),
+      JSON.stringify({ name: 'dsh-plug', dsh: { bundle: { patch: './patch.yml' } } })
+    )
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh-plug', 'patch.yml'),
+      '- insert:\n    - id: dsh-plug\n    - id: dsh-plug-extra\n'
+    )
+    assert.deepEqual(rowIdsForPackage(dir, 'dsh-plug'), ['dsh-plug', 'dsh-plug-extra'])
+
+    // Conventional root cordis.patch.yml.
+    mkdirSync(join(dir, 'node_modules', 'dsh-other'), { recursive: true })
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh-other', 'package.json'),
+      JSON.stringify({ name: 'dsh-other' })
+    )
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh-other', 'cordis.patch.yml'),
+      '- insert:\n    - id: dsh-other\n'
+    )
+    assert.deepEqual(rowIdsForPackage(dir, 'dsh-other'), ['dsh-other'])
+
+    // No patch file at all: the package name is the conventional row id.
+    mkdirSync(join(dir, 'node_modules', 'dsh-bare'), { recursive: true })
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh-bare', 'package.json'),
+      JSON.stringify({ name: 'dsh-bare' })
+    )
+    assert.deepEqual(rowIdsForPackage(dir, 'dsh-bare'), ['dsh-bare'])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setPluginEnabled toggles the profile patch layer idempotently', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-toggle-'))
+  try {
+    mkdirSync(join(dir, 'node_modules', 'dsh-plug'), { recursive: true })
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh-plug', 'package.json'),
+      JSON.stringify({ name: 'dsh-plug' })
+    )
+    const file = patchFilePath(dir)
+    writeFileSync(file, '# header\n[]\n')
+
+    assert.equal(isPluginDisabled(dir, 'dsh-plug'), false)
+
+    let result = await setPluginEnabled(dir, 'dsh-plug', false)
+    assert.equal(result.ok, true)
+    assert.equal(isPluginDisabled(dir, 'dsh-plug'), true)
+    assert.ok(/^- id: dsh-plug\n  disabled: true/m.test(readFileSync(file, 'utf8')))
+    // The template placeholder is commented out, not left as a second element.
+    assert.ok(/# \[\]\n/.test(readFileSync(file, 'utf8')))
+
+    // Idempotent disable: no duplicate rows.
+    await setPluginEnabled(dir, 'dsh-plug', false)
+    const afterDisable = readFileSync(file, 'utf8')
+    assert.equal((afterDisable.match(/disabled: true/g) ?? []).length, 1)
+
+    result = await setPluginEnabled(dir, 'dsh-plug', true)
+    assert.equal(result.ok, true)
+    assert.equal(isPluginDisabled(dir, 'dsh-plug'), false)
+    assert.ok(!/disabled: true/.test(readFileSync(file, 'utf8')))
+
+    // Idempotent enable.
+    await setPluginEnabled(dir, 'dsh-plug', true)
+    assert.equal(isPluginDisabled(dir, 'dsh-plug'), false)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setPluginEnabled refuses hostile row ids', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-toggle-bad-'))
+  try {
+    mkdirSync(join(dir, 'node_modules', 'dsh x'), { recursive: true })
+    writeFileSync(
+      join(dir, 'node_modules', 'dsh x', 'package.json'),
+      JSON.stringify({ name: 'dsh x' })
+    )
+    const result = await setPluginEnabled(dir, 'dsh x', false)
+    assert.equal(result.ok, false)
+    assert.ok(/cannot be written/.test(result.reason))
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

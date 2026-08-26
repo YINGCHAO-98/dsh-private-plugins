@@ -1,4 +1,4 @@
-# dsh-plugin-manager bundle patch: inserts this plugin into a profile's layer stack.
+# dsh-private-plugins bundle patch: inserts this plugin into a profile's layer stack.
 - insert:
-    - id: dsh-plugin-manager
-      name: 'dsh-plugin-manager'
+    - id: dsh-private-plugins
+      name: 'dsh-private-plugins'

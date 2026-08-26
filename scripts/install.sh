@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# dsh-plugin-manager - one-click install / reinstall helper
+# dsh-private-plugins - one-click install / reinstall helper
 # 一键安装 / 重装脚本：自动探测 DSH Desktop 的 web profile 与 dsh CLI。
 #
 # Usage / 用法:
@@ -18,7 +18,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROFILE_NAME="web"
-PLUGIN_NAME="dsh-plugin-manager"
+PLUGIN_NAME="dsh-private-plugins"
 
 MODE="interactive"   # interactive | all | check
 REINSTALL=0
@@ -186,9 +186,9 @@ done
 if [[ "$FAILED" == "0" ]]; then
   echo ""
   echo "Done. Restart Harness (Harness > Restart Harness, or quit and reopen DSH Desktop),"
-  echo "then open Settings > Plugins > Plugin manager for the unified import UI."
+  echo "then open Settings > Private plugins. It appears next to Plugin market."
   echo "完成。请重启 Harness（菜单 Harness -> 重启 Harness，或退出重开 DSH Desktop），"
-  echo "然后打开 设置 -> 插件 -> 插件管理 使用统一导入界面。"
+  echo "然后打开 设置 -> 私有插件；它会与 插件市场 并列显示。"
 else
   exit 1
 fi

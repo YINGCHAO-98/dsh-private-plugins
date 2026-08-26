@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-plugin-manager',
+  id: 'dsh-private-plugins',
   factory: (require) => {
     const module = { exports: {} }
     const exports = module.exports
@@ -7,32 +7,25 @@ window.__ModuleLoader__.load({
     const React = require('react')
 
     const NS = 'settings.pluginManager'
-    const STATUS_PATH = '/dsh-plugin-manager/status'
-    const REPOS_PATH = '/dsh-plugin-manager/repos'
-    const REPOS_ADD_PATH = '/dsh-plugin-manager/repos/add'
-    const REPOS_REMOVE_PATH = '/dsh-plugin-manager/repos/remove'
-    const INSTALL_PATH = '/dsh-plugin-manager/install'
-    const IMPORT_UPLOAD_PATH = '/dsh-plugin-manager/import-upload'
-    const IMPORT_PATH_PATH = '/dsh-plugin-manager/import-path'
-    const REMOVE_PATH = '/dsh-plugin-manager/remove'
-    const UPDATES_PATH = '/dsh-plugin-manager/updates'
+    const STATUS_PATH = '/dsh-private-plugins/status'
+    const REPOS_PATH = '/dsh-private-plugins/repos'
+    const REPOS_ADD_PATH = '/dsh-private-plugins/repos/add'
+    const INSTALL_PATH = '/dsh-private-plugins/install'
+    const IMPORT_UPLOAD_PATH = '/dsh-private-plugins/import-upload'
+    const IMPORT_PATH_PATH = '/dsh-private-plugins/import-path'
+    const REMOVE_PATH = '/dsh-private-plugins/remove'
+    const TOGGLE_PATH = '/dsh-private-plugins/toggle'
+    const UPDATES_PATH = '/dsh-private-plugins/updates'
 
     const en = {
-      nav: 'Private & local plugins',
+      nav: 'Private plugins',
       intro: 'Import plugins from your private git repositories or from local files — all in one place.',
-      repos: 'Private repositories',
       reposHint: 'Add your own git repositories (public or private). Installation uses this machine\'s git credentials, so private repos work once SSH keys or a credential helper are set up.',
       repoUrlPlaceholder: 'e.g. git@github.com:you/your-plugin.git or https://github.com/you/your-plugin',
-      repoLabelPlaceholder: 'Label (optional)',
+      repoLabelPlaceholder: 'Custom name (optional; defaults to repository name)',
       repoAdd: 'Add repository',
       repoAdding: 'Adding…',
-      repoEmpty: 'No repositories saved yet. Add one above to install a plugin from your own repo.',
-      repoInstall: 'Install',
-      repoInstalling: 'Installing…',
-      repoRemove: 'Remove',
-      repoRemoving: 'Removing…',
       repoCredsHint: 'Private repositories need working git credentials on this machine (SSH key or HTTPS token).',
-      local: 'Local import',
       localHint: 'Upload an npm pack (.tgz / .tar.gz / .tar) of a plugin, or pick a local plugin folder directly.',
       upload: 'Upload archive',
       uploading: 'Uploading…',
@@ -41,10 +34,27 @@ window.__ModuleLoader__.load({
       noFolderPicker: 'Folder picking is only available in DSH Desktop (or a browser with folder upload support). Use the archive upload instead.',
       installed: 'Installed plugins',
       installedEmpty: 'No plugins installed yet.',
-      remove: 'Remove',
-      removing: 'Removing…',
+      installedHint: 'Local imports and cloud installs from your private repositories, managed market-style.',
       protectedTag: 'protected',
       bundleTag: 'bundle',
+      install: 'Install',
+      installing: 'Installing…',
+      pendingUpdate: 'Update available',
+      updating: 'Updating…',
+      updatedBtn: 'Updated',
+      unknownBtn: 'Unknown',
+      uninstall: 'Uninstall',
+      uninstalling: 'Uninstalling…',
+      sourceLocal: 'local',
+      sourceCloud: 'repo',
+      importSource: 'Import source',
+      importSourceHint: 'Private repositories and local files are just import methods — every plugin is managed in the Installed plugins list below.',
+      repoSection: 'Cloud repository',
+      localSection: 'Local files',
+      enabledTag: 'On',
+      disabledTag: 'Off',
+      enable: 'Enable',
+      disable: 'Disable',
       busy: 'An operation is running — this can take a few minutes. Keep the app open.',
       restartHint: 'Restart Harness to activate changes.',
       restart: 'Restart Harness',
@@ -57,33 +67,21 @@ window.__ModuleLoader__.load({
       hostStaleRestart: 'Restart Harness',
       updates: 'Updates',
       updatesAvailable: 'update(s) available',
-      updatesUpToDate: 'All installed plugins are up to date.',
+      updatesUpToDate: 'No plugins awaiting an update.',
       updatesCheck: 'Check for updates',
       updatesChecking: 'Checking…',
-      updatesUpdate: 'Update',
-      updatesUpdating: 'Updating…',
-      updatesCurrent: 'current',
-      updatesLatest: 'latest',
-      updatesUnknown: 'Update status unknown (offline or private repo without credentials): ',
-      updatesLocal: 'Local sources (file:/link:) are not checked.',
+      updatesInlineHint: 'update them from the rows below.',
     }
 
     const zh = {
-      nav: '本地与私有插件',
+      nav: '私有插件',
       intro: '从你自己的私有 Git 仓库或本地文件导入插件——统一在一个界面里完成。',
-      repos: '我的私有仓库',
       reposHint: '添加你自己的 Git 仓库（公开或私有）。安装走本机 git 凭据，配好 SSH key 或凭据后即可直接装私有仓库。',
       repoUrlPlaceholder: '例如 git@github.com:you/your-plugin.git 或 https://github.com/you/your-plugin',
-      repoLabelPlaceholder: '备注名（可选）',
+      repoLabelPlaceholder: '自定义名称（可选，默认使用仓库名）',
       repoAdd: '添加仓库',
       repoAdding: '添加中…',
-      repoEmpty: '还没有保存任何仓库，先在上面添加一个，就可以从你自己的仓库安装插件。',
-      repoInstall: '安装',
-      repoInstalling: '安装中…',
-      repoRemove: '移除',
-      repoRemoving: '移除中…',
       repoCredsHint: '私有仓库需要本机可用的 git 凭据（SSH key 或 HTTPS token）。',
-      local: '本地导入',
       localHint: '上传插件的 npm 打包产物（.tgz / .tar.gz / .tar），或直接选择本地插件文件夹。',
       upload: '上传压缩包',
       uploading: '上传中…',
@@ -92,10 +90,27 @@ window.__ModuleLoader__.load({
       noFolderPicker: '文件夹选择仅在 DSH Desktop（或支持文件夹上传的浏览器）中可用，请改用压缩包上传。',
       installed: '已安装插件',
       installedEmpty: '还没有安装插件。',
-      remove: '移除',
-      removing: '移除中…',
+      installedHint: '本地导入与从私有仓库安装的云端插件统一在此管理（参考插件市场）。',
       protectedTag: '受保护',
       bundleTag: '配置层',
+      install: '安装',
+      installing: '安装中…',
+      pendingUpdate: '待更新',
+      updating: '更新中…',
+      updatedBtn: '已更新',
+      unknownBtn: '未知',
+      uninstall: '卸载',
+      uninstalling: '卸载中…',
+      sourceLocal: '本地',
+      sourceCloud: '仓库',
+      importSource: '导入方式',
+      importSourceHint: '私有仓库与本地文件都只是导入方式；所有插件统一在下方「已安装插件」中管理。',
+      repoSection: '云端仓库',
+      localSection: '本地文件',
+      enabledTag: '已启用',
+      disabledTag: '已停用',
+      enable: '启用',
+      disable: '停用',
       busy: '正在执行插件操作，可能需要几分钟，请保持应用打开。',
       restartHint: '重启 Harness 后生效。',
       restart: '重启 Harness',
@@ -108,25 +123,20 @@ window.__ModuleLoader__.load({
       hostStaleRestart: '重启 Harness',
       updates: '更新提醒',
       updatesAvailable: '个插件可更新',
-      updatesUpToDate: '所有已安装插件都是最新版本。',
+      updatesUpToDate: '暂无待更新插件。',
       updatesCheck: '检查更新',
       updatesChecking: '检查中…',
-      updatesUpdate: '更新',
-      updatesUpdating: '更新中…',
-      updatesCurrent: '当前',
-      updatesLatest: '最新',
-      updatesUnknown: '更新状态未知（离线或私有仓库无凭据）：',
-      updatesLocal: '本地来源（file:/link:）不检查更新。',
+      updatesInlineHint: '可在下方各行直接更新。',
     }
 
     const css = `
       .dshPm{box-sizing:border-box;max-width:760px;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;gap:18px}
       .dshPm h2{margin:0;font-size:20px;font-weight:600;line-height:30px}
       .dshPmIntro{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}
-      .dshPmCard{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+      .dshPmCard{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px}
       .dshPmCardHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
       .dshPmCardTitle{margin:0;font-size:15px;font-weight:600;line-height:22px}
-      .dshPmMuted{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
+      .dshPmMuted{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;overflow-wrap:anywhere;word-break:break-word}
       .dshPmStatus{display:flex;flex-direction:column;gap:6px;padding:10px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1)}
       .dshPmBusy{display:flex;align-items:center;gap:9px}
       .dshPmSpinner{box-sizing:border-box;width:15px;height:15px;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-label-primary);border-radius:50%;animation:dshPmSpin .75s linear infinite}
@@ -140,6 +150,17 @@ window.__ModuleLoader__.load({
       .dshPmRowName{font-size:14px;font-weight:600;line-height:20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .dshPmTag{font-size:11px;line-height:16px;padding:1px 7px;border-radius:999px;border:1px solid var(--dsw-alias-border-l3);color:var(--dsw-alias-label-tertiary)}
       .dshPmTagAccent{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l2)}
+      .dshPmImportList{display:flex;flex-direction:column;gap:14px}
+      .dshPmImportCard{min-width:0;gap:12px}
+      .dshPmImportBlock{display:flex;flex-direction:column;gap:10px;min-width:0}
+      .dshPmImportForm{flex-wrap:wrap}
+      .dshPmInstalled{display:flex;flex-direction:column;gap:12px}
+      .dshPmInstalledHead{display:flex;flex-direction:column;gap:4px}
+      .dshPmPluginGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      .dshPmPluginCard{box-sizing:border-box;min-width:0;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:border-color .16s,box-shadow .16s,transform .16s}
+      .dshPmPluginCard:hover{border-color:var(--dsw-alias-border-l3);box-shadow:var(--dsw-shadow-lv1);transform:translateY(-1px)}
+      .dshPmPluginFooter{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+      @media (max-width:620px){.dshPmPluginGrid{grid-template-columns:1fr}}
       .dshPmRowDesc{margin:0;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:19px;overflow-wrap:anywhere}
       .dshPmButton{box-sizing:border-box;height:32px;padding:0 14px;border:1px solid transparent;border-radius:16px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
       .dshPmPrimary{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-primary-fill)}
@@ -163,10 +184,10 @@ window.__ModuleLoader__.load({
     `
 
     function installStyles() {
-      if (document.querySelector('style[data-plugin-css="dsh-plugin-manager"]')) return
+      if (document.querySelector('style[data-plugin-css="dsh-private-plugins"]')) return
       const style = document.createElement('style')
-      style.dataset.plugin = 'dsh-plugin-manager'
-      style.dataset.pluginCss = 'dsh-plugin-manager'
+      style.dataset.plugin = 'dsh-private-plugins'
+      style.dataset.pluginCss = 'dsh-private-plugins'
       style.textContent = css
       document.head.appendChild(style)
     }
@@ -257,12 +278,170 @@ window.__ModuleLoader__.load({
       return React.createElement('div', { className: 'dshPmStatus' }, ...elements)
     }
 
-    function PrivateRepos({ repos, busy, t, onAdd, onInstall, onRemove }) {
+    /** True for a locally imported plugin spec (file:/link:/absolute path). */
+    function isLocalSpec(spec) {
+      return (
+        typeof spec === 'string' &&
+        (spec.startsWith('file:') || spec.startsWith('link:') || spec.startsWith('/'))
+      )
+    }
+
+    /**
+     * A spec reduced to its repository identity: protocol prefixes, the
+     * trailing .git and any #ref fragment removed. Two specs sharing an
+     * identity are the same repository, whatever branch was saved.
+     */
+    function specIdentity(spec) {
+      if (typeof spec !== 'string' || spec === '') return ''
+      const hash = spec.indexOf('#')
+      const base = hash === -1 ? spec : spec.slice(0, hash)
+      return base.replace(/^git\+/, '').replace(/\.git$/, '')
+    }
+
+    /** The installed plugin entry matching a repo spec, if any. */
+    function findInstalledBySpec(spec, installed) {
+      if (typeof spec !== 'string' || spec === '') return undefined
+      const target = specIdentity(spec)
+      return installed.find((plugin) => {
+        if (plugin.spec === spec) return true
+        return target !== '' && specIdentity(plugin.spec) === target
+      })
+    }
+
+    /**
+     * The market-style status of a plugin row:
+     *   notInstalled   – not installed (repo saved but never installed)
+     *   updated        – just updated this boot, restart applies it
+     *   updateAvailable– installed, a newer remote revision exists
+     *   unknown        – installed, but updates cannot be checked
+     *   installed      – installed and current
+     */
+    function pluginState(plugin, byName, updatedNames) {
+      if (!plugin) return 'notInstalled'
+      if (updatedNames.includes(plugin.name)) return 'updated'
+      const info = byName?.[plugin.name]
+      if (!info) return 'unknown'
+      if (info.available) return 'updateAvailable'
+      // Old hosts/caches do not include `known`; an absent latest value is
+      // not evidence that a Git/local source was actually checked.
+      const known = info.known === true || (info.known === undefined && info.latest !== undefined)
+      if (!known) return 'unknown'
+      return 'installed'
+    }
+
+    /** The install spec that fetches the newest remote revision of a plugin. */
+    function updateSpecOf(plugin) {
+      const spec = plugin?.spec
+      if (typeof spec !== 'string' || spec === '') return spec
+      // An npm name/range spec — "dsh-x", "dsh-x@^1.0.0", or a bare
+      // version range / dist-tag ("^1.2.3", "next") recorded under the
+      // plugin's own name — updates to @latest. Git and local specs pass
+      // through so pnpm re-resolves the same source.
+      const npmSpec = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(?:@[^\s/]+)?$/.test(spec)
+      const versionOrTag =
+        /^[~^]?(?:[0-9]+(?:\.[0-9x]+)*(?:[-+][0-9A-Za-z.-]+)?|[A-Za-z][0-9A-Za-z.-]*)$/.test(spec)
+      return npmSpec || versionOrTag ? `${plugin.name}@latest` : spec
+    }
+
+    /** A standard action button, avoiding a custom switch visual. */
+    function EnableButton({ plugin, busy, active, t, onToggle }) {
+      if (typeof plugin.disabled !== 'boolean') return null
+      const off = plugin.disabled
+      return React.createElement(
+        'button',
+        {
+          type: 'button',
+          className: off ? 'dshPmButton dshPmPrimary' : 'dshPmButton dshPmSecondary',
+          disabled: busy || active !== null,
+          onClick: () => onToggle(plugin, !off),
+        },
+        off ? t('enable') : t('disable')
+      )
+    }
+
+    /**
+     * The market-style action buttons of one plugin row:
+     *   install              — 安装 a saved cloud repository;
+     *   update state           — 待更新、已更新或未知; 待更新可直接执行更新;
+     *   uninstall            — for every installed row.
+     * `active` is this row's own in-flight action ('install' | 'update' |
+     * 'remove' | null), used for the in-progress labels.
+     */
+    function PluginButtons({ state, busy, active, t, onInstall, onUpdate, onRemove }) {
+      const disabled = busy || active !== null
+      const buttons = []
+      if (state === 'notInstalled' && typeof onInstall === 'function') {
+        buttons.push(
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              key: 'install',
+              className: 'dshPmButton dshPmPrimary',
+              disabled,
+              onClick: onInstall,
+            },
+            active === 'install' ? t('installing') : t('install')
+          )
+        )
+      }
+      if (state === 'updateAvailable' && typeof onUpdate === 'function') {
+        buttons.push(
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              key: 'update',
+              className: 'dshPmButton dshPmPrimary',
+              disabled,
+              onClick: onUpdate,
+            },
+            active === 'update' ? t('updating') : t('pendingUpdate')
+          )
+        )
+      } else if (state !== 'notInstalled') {
+        buttons.push(
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              key: 'updated',
+              className: 'dshPmButton dshPmSecondary',
+              disabled: true,
+            },
+            state === 'unknown' ? t('unknownBtn') : t('updatedBtn')
+          )
+        )
+      }
+      if (state !== 'notInstalled' && typeof onRemove === 'function') {
+        buttons.push(
+          React.createElement(
+            'button',
+            {
+              type: 'button',
+              key: 'remove',
+              className: 'dshPmButton dshPmDanger',
+              disabled,
+              onClick: onRemove,
+            },
+            active === 'remove' ? t('uninstalling') : t('uninstall')
+          )
+        )
+      }
+      return React.createElement('div', { className: 'dshPmActions' }, ...buttons)
+    }
+
+    /**
+     * The import-source card has two stacked import methods. No plugin lists
+     * live here; every plugin is managed in the Installed plugins list below.
+     */
+    function ImportSource({ busy, t, onAdd, onUpload, onPickFolder, canPickFolder }) {
       const [url, setUrl] = React.useState('')
       const [label, setLabel] = React.useState('')
       const [adding, setAdding] = React.useState(false)
-      const [installingId, setInstallingId] = React.useState(null)
-      const [removingId, setRemovingId] = React.useState(null)
+      const [picking, setPicking] = React.useState(false)
+      const [fileName, setFileName] = React.useState('')
+      const fileRef = React.useRef(null)
 
       const add = async () => {
         if (!url.trim()) return
@@ -275,204 +454,6 @@ window.__ModuleLoader__.load({
           setAdding(false)
         }
       }
-
-      const install = async (repo) => {
-        setInstallingId(repo.id)
-        try {
-          await onInstall(repo)
-        } finally {
-          setInstallingId(null)
-        }
-      }
-
-      const remove = async (repo) => {
-        setRemovingId(repo.id)
-        try {
-          await onRemove(repo)
-        } finally {
-          setRemovingId(null)
-        }
-      }
-
-      return React.createElement(
-        'div',
-        { className: 'dshPmCard' },
-        React.createElement('h3', { className: 'dshPmCardTitle' }, t('repos')),
-        React.createElement('p', { className: 'dshPmHint' }, t('reposHint')),
-        React.createElement(
-          'div',
-          { className: 'dshPmForm' },
-          React.createElement('input', {
-            className: 'dshPmInput',
-            type: 'text',
-            placeholder: t('repoUrlPlaceholder'),
-            value: url,
-            disabled: busy || adding,
-            onChange: (event) => setUrl(event.target.value),
-            onKeyDown: (event) => { if (event.key === 'Enter') void add() },
-          }),
-          React.createElement('input', {
-            className: 'dshPmInput dshPmInputSmall',
-            type: 'text',
-            placeholder: t('repoLabelPlaceholder'),
-            value: label,
-            disabled: busy || adding,
-            onChange: (event) => setLabel(event.target.value),
-          }),
-          React.createElement(
-            'button',
-            {
-              type: 'button',
-              className: 'dshPmButton dshPmPrimary',
-              disabled: busy || adding || !url.trim(),
-              onClick: () => void add(),
-            },
-            adding ? t('repoAdding') : t('repoAdd')
-          )
-        ),
-        repos.length === 0
-          ? React.createElement('p', { className: 'dshPmHint' }, t('repoEmpty'))
-          : repos.map((repo) =>
-              React.createElement(
-                'div',
-                { key: repo.id, className: 'dshPmRow' },
-                React.createElement(
-                  'div',
-                  { className: 'dshPmRowMain' },
-                  React.createElement(
-                    'div',
-                    { className: 'dshPmRowName' },
-                    React.createElement('span', null, repo.label || repo.url)
-                  ),
-                  React.createElement('p', { className: 'dshPmMuted' }, repo.spec)
-                ),
-                React.createElement(
-                  'div',
-                  { className: 'dshPmActions' },
-                  React.createElement(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshPmButton dshPmPrimary',
-                      disabled: busy || installingId !== null || removingId !== null,
-                      onClick: () => void install(repo),
-                    },
-                    installingId === repo.id ? t('repoInstalling') : t('repoInstall')
-                  ),
-                  React.createElement(
-                    'button',
-                    {
-                      type: 'button',
-                      className: 'dshPmButton dshPmDanger',
-                      disabled: busy || installingId !== null || removingId !== null,
-                      onClick: () => void remove(repo),
-                    },
-                    removingId === repo.id ? t('repoRemoving') : t('repoRemove')
-                  )
-                )
-              )
-            ),
-        React.createElement('p', { className: 'dshPmHint' }, t('repoCredsHint'))
-      )
-    }
-
-    function UpdatesSection({ updates, busy, t, onCheck, onUpdate }) {
-      const [checking, setChecking] = React.useState(false)
-      const [updating, setUpdating] = React.useState(null)
-      const list = updates?.updates || []
-      const unknown = updates?.unknown || []
-      if (!updates) return null
-
-      const check = async () => {
-        setChecking(true)
-        try {
-          await onCheck()
-        } finally {
-          setChecking(false)
-        }
-      }
-
-      const update = async (item) => {
-        setUpdating(item.name)
-        try {
-          await onUpdate(item)
-        } finally {
-          setUpdating(null)
-        }
-      }
-
-      return React.createElement(
-        'div',
-        { className: 'dshPmCard' },
-        React.createElement(
-          'div',
-          { className: 'dshPmCardHead' },
-          React.createElement('h3', { className: 'dshPmCardTitle' }, t('updates')),
-          React.createElement(
-            'button',
-            {
-              type: 'button',
-              className: 'dshPmButton dshPmSecondary',
-              disabled: busy || checking,
-              onClick: () => void check(),
-            },
-            checking ? t('updatesChecking') : t('updatesCheck')
-          )
-        ),
-        list.length > 0
-          ? React.createElement(
-              'p',
-              { className: 'dshPmRowDesc dshPmOk' },
-              `${list.length} ${t('updatesAvailable')}`
-            )
-          : unknown.length === 0
-            ? React.createElement('p', { className: 'dshPmHint' }, t('updatesUpToDate'))
-            : null,
-        list.map((item) =>
-          React.createElement(
-            'div',
-            { key: item.name, className: 'dshPmRow' },
-            React.createElement(
-              'div',
-              { className: 'dshPmRowMain' },
-              React.createElement(
-                'div',
-                { className: 'dshPmRowName' },
-                React.createElement('span', null, item.name)
-              ),
-              React.createElement(
-                'p',
-                { className: 'dshPmMuted' },
-                `${t('updatesCurrent')}: ${item.current} → ${t('updatesLatest')}: ${item.latest}`
-              )
-            ),
-            React.createElement(
-              'button',
-              {
-                type: 'button',
-                className: 'dshPmButton dshPmPrimary',
-                disabled: busy || updating !== null,
-                onClick: () => void update(item),
-              },
-              updating === item.name ? t('updatesUpdating') : t('updatesUpdate')
-            )
-          )
-        ),
-        unknown.length > 0
-          ? React.createElement(
-              'p',
-              { className: 'dshPmHint' },
-              `${t('updatesUnknown')} ${unknown.join(', ')}`
-            )
-          : null,
-        React.createElement('p', { className: 'dshPmHint' }, t('updatesLocal'))
-      )
-    }
-
-    function LocalImport({ busy, t, onUpload, onPickFolder, canPickFolder }) {
-      const fileRef = React.useRef(null)
-      const [fileName, setFileName] = React.useState('')
-      const [picking, setPicking] = React.useState(false)
 
       const upload = async () => {
         let file = fileRef.current?.files?.[0]
@@ -500,70 +481,189 @@ window.__ModuleLoader__.load({
 
       return React.createElement(
         'div',
+        { className: 'dshPmImportList' },
+        React.createElement(
+          'section',
+          { className: 'dshPmCard dshPmImportCard' },
+          React.createElement(
+            'div',
+            { className: 'dshPmImportBlock' },
+            React.createElement('h3', { className: 'dshPmCardTitle' }, t('repoSection')),
+            React.createElement('p', { className: 'dshPmHint' }, t('reposHint')),
+            React.createElement(
+              'div',
+              { className: 'dshPmForm dshPmImportForm' },
+              React.createElement('input', {
+                className: 'dshPmInput',
+                type: 'text',
+                placeholder: t('repoUrlPlaceholder'),
+                value: url,
+                disabled: busy || adding,
+                onChange: (event) => setUrl(event.target.value),
+                onKeyDown: (event) => { if (event.key === 'Enter') void add() },
+              }),
+              React.createElement('input', {
+                className: 'dshPmInput dshPmInputSmall',
+                type: 'text',
+                placeholder: t('repoLabelPlaceholder'),
+                value: label,
+                disabled: busy || adding,
+                onChange: (event) => setLabel(event.target.value),
+                onKeyDown: (event) => { if (event.key === 'Enter') void add() },
+              }),
+              React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshPmButton dshPmPrimary',
+                  disabled: busy || adding || !url.trim(),
+                  onClick: () => void add(),
+                },
+                adding ? t('repoAdding') : t('repoAdd')
+              )
+            ),
+            React.createElement('p', { className: 'dshPmHint' }, t('repoCredsHint'))
+          )
+        ),
+        React.createElement(
+          'section',
+          { className: 'dshPmCard dshPmImportCard' },
+          React.createElement(
+            'div',
+            { className: 'dshPmImportBlock' },
+            React.createElement('h3', { className: 'dshPmCardTitle' }, t('localSection')),
+            React.createElement('p', { className: 'dshPmHint' }, t('localHint')),
+            React.createElement('input', {
+              ref: fileRef,
+              className: 'dshPmFile',
+              type: 'file',
+              accept: '.tgz,.tar,.tar.gz,application/gzip',
+            }),
+            React.createElement(
+              'div',
+              { className: 'dshPmActions' },
+              React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshPmButton dshPmPrimary',
+                  disabled: busy || picking,
+                  onClick: () => void upload(),
+                },
+                t('upload')
+              ),
+              canPickFolder
+                ? React.createElement(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dshPmButton dshPmSecondary',
+                      disabled: busy || picking,
+                      onClick: () => void pickFolder(),
+                    },
+                    picking ? t('pickingFolder') : t('pickFolder')
+                  )
+                : null
+            ),
+            fileName !== ''
+              ? React.createElement('span', { className: 'dshPmMuted' }, fileName)
+              : null,
+            !canPickFolder
+              ? React.createElement('p', { className: 'dshPmHint' }, t('noFolderPicker'))
+              : null
+          )
+        )
+      )
+    }
+
+    function UpdatesSection({ updates, busy, t, onCheck }) {
+      const [checking, setChecking] = React.useState(false)
+      const list = updates?.updates || []
+      if (!updates) return null
+
+      const check = async () => {
+        setChecking(true)
+        try {
+          await onCheck()
+        } finally {
+          setChecking(false)
+        }
+      }
+
+      return React.createElement(
+        'div',
         { className: 'dshPmCard' },
-        React.createElement('h3', { className: 'dshPmCardTitle' }, t('local')),
-        React.createElement('p', { className: 'dshPmHint' }, t('localHint')),
         React.createElement(
           'div',
-          { className: 'dshPmActions' },
-          React.createElement('input', {
-            ref: fileRef,
-            className: 'dshPmFile',
-            type: 'file',
-            accept: '.tgz,.tar,.tar.gz,application/gzip',
-          }),
+          { className: 'dshPmCardHead' },
+          React.createElement('h3', { className: 'dshPmCardTitle' }, t('updates')),
           React.createElement(
             'button',
             {
               type: 'button',
-              className: 'dshPmButton dshPmPrimary',
-              disabled: busy || picking,
-              onClick: () => void upload(),
+              className: 'dshPmButton dshPmSecondary',
+              disabled: busy || checking,
+              onClick: () => void check(),
             },
-            t('upload')
-          ),
-          canPickFolder
-            ? React.createElement(
-                'button',
-                {
-                  type: 'button',
-                  className: 'dshPmButton dshPmSecondary',
-                  disabled: busy || picking,
-                  onClick: () => void pickFolder(),
-                },
-                picking ? t('pickingFolder') : t('pickFolder')
-              )
-            : null
+            checking ? t('updatesChecking') : t('updatesCheck')
+          )
         ),
-        fileName !== ''
-          ? React.createElement('span', { className: 'dshPmMuted' }, fileName)
-          : null,
-        !canPickFolder
-          ? React.createElement('p', { className: 'dshPmHint' }, t('noFolderPicker'))
-          : null
+        list.length > 0
+          ? React.createElement(
+              'p',
+              { className: 'dshPmRowDesc dshPmOk' },
+              `${list.length} ${t('updatesAvailable')} — ${t('updatesInlineHint')}`
+            )
+          : React.createElement('p', { className: 'dshPmHint' }, t('updatesUpToDate'))
       )
     }
 
-    function InstalledList({ installed, busy, t, onRemove }) {
-      const [removing, setRemoving] = React.useState(null)
-      const remove = async (plugin) => {
-        setRemoving(plugin.name)
+    /**
+     * The single management list, rendered as individual marketplace-style
+     * cards. It contains local imports and private-repository installs, plus
+     * saved repositories that have not been installed yet.
+     */
+    function InstalledList({ rows, busy, t, onInstall, onUpdate, onRemove, onToggle }) {
+      const [busyRow, setBusyRow] = React.useState(null)
+      const run = async (action, row, key) => {
+        setBusyRow({ key, action })
         try {
-          await onRemove(plugin.name)
+          if (action === 'install') await onInstall(row)
+          else if (action === 'update') await onUpdate(row)
+          else if (action === 'remove') await onRemove(row)
         } finally {
-          setRemoving(null)
+          setBusyRow(null)
+        }
+      }
+      const toggle = async (plugin, enabled, key) => {
+        setBusyRow({ key, action: 'toggle' })
+        try {
+          await onToggle(plugin, enabled)
+        } finally {
+          setBusyRow(null)
         }
       }
       return React.createElement(
-        'div',
-        { className: 'dshPmCard' },
-        React.createElement('h3', { className: 'dshPmCardTitle' }, t('installed')),
-        installed.length === 0
+        'section',
+        { className: 'dshPmInstalled' },
+        React.createElement(
+          'header',
+          { className: 'dshPmInstalledHead' },
+          React.createElement('h3', { className: 'dshPmCardTitle' }, t('installed')),
+          React.createElement('p', { className: 'dshPmHint' }, t('installedHint'))
+        ),
+        rows.length === 0
           ? React.createElement('p', { className: 'dshPmHint' }, t('installedEmpty'))
-          : installed.map((plugin) =>
-              React.createElement(
-                'div',
-                { key: plugin.name, className: 'dshPmRow' },
+          : React.createElement('div', { className: 'dshPmPluginGrid' }, rows.map((row) => {
+              const plugin = row.plugin
+              const state = row.state
+              const local = isLocalSpec(plugin.spec)
+              const key = `${plugin.name}|${plugin.spec}`
+              const active =
+                busyRow !== null && busyRow.key === key ? busyRow.action : null
+              return React.createElement(
+                'article',
+                { key, className: 'dshPmPluginCard' },
                 React.createElement(
                   'div',
                   { className: 'dshPmRowMain' },
@@ -573,6 +673,14 @@ window.__ModuleLoader__.load({
                     React.createElement('span', null, plugin.name),
                     plugin.version
                       ? React.createElement('span', { className: 'dshPmMuted' }, plugin.version)
+                      : null,
+                    React.createElement(
+                      'span',
+                      { className: 'dshPmTag' },
+                      local ? t('sourceLocal') : t('sourceCloud')
+                    ),
+                    plugin.disabled === true
+                      ? React.createElement('span', { className: 'dshPmTag' }, t('disabledTag'))
                       : null,
                     plugin.self
                       ? React.createElement('span', { className: 'dshPmTag dshPmTagAccent' }, t('protectedTag'))
@@ -586,20 +694,32 @@ window.__ModuleLoader__.load({
                     : null,
                   React.createElement('p', { className: 'dshPmMuted' }, plugin.spec)
                 ),
-                plugin.self
-                  ? null
-                  : React.createElement(
-                      'button',
-                      {
-                        type: 'button',
-                        className: 'dshPmButton dshPmDanger',
-                        disabled: busy || removing !== null,
-                        onClick: () => void remove(plugin),
-                      },
-                      removing === plugin.name ? t('removing') : t('remove')
-                    )
+                React.createElement(
+                  'div',
+                  { className: 'dshPmPluginFooter' },
+                  plugin.self
+                    ? null
+                    : React.createElement(EnableButton, {
+                        plugin,
+                        busy,
+                        active,
+                        t,
+                        onToggle: (target, enabled) => void toggle(target, enabled, key),
+                      }),
+                  plugin.self
+                    ? null
+                    : React.createElement(PluginButtons, {
+                        state,
+                        busy,
+                        active,
+                        t,
+                        onInstall: () => void run('install', row, key),
+                        onUpdate: () => void run('update', row, key),
+                        onRemove: () => void run('remove', row, key),
+                      })
+                )
               )
-            )
+            }))
       )
     }
 
@@ -695,20 +815,6 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const removeRepo = async (repo) => {
-        setError(undefined)
-        try {
-          await api(REPOS_REMOVE_PATH, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ id: repo.id }),
-          })
-          await loadRepos()
-        } catch (failure) {
-          onOperationError(failure)
-        }
-      }
-
       const installRepo = async (repo) => {
         setError(undefined)
         try {
@@ -718,21 +824,22 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ spec: repo.spec }),
           })
           await loadStatus()
+          void refreshUpdates(true)
         } catch (failure) {
           onOperationError(failure)
         }
       }
 
-      const updatePlugin = async (item) => {
+      const updatePlugin = async (name, spec) => {
         setError(undefined)
         try {
-          const spec = item.kind === 'npm' ? `${item.name}@latest` : item.spec
           await api(INSTALL_PATH, {
             method: 'POST',
             headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ spec }),
+            body: JSON.stringify({ name, spec, update: true }),
           })
           await loadStatus()
+          void refreshUpdates(true)
         } catch (failure) {
           onOperationError(failure)
         }
@@ -747,6 +854,7 @@ window.__ModuleLoader__.load({
             body: file,
           })
           await loadStatus()
+          void refreshUpdates(true)
         } catch (failure) {
           onOperationError(failure)
         }
@@ -772,6 +880,7 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ path }),
           })
           await loadStatus()
+          void refreshUpdates(true)
         } catch (failure) {
           onOperationError(failure)
         }
@@ -784,6 +893,21 @@ window.__ModuleLoader__.load({
             method: 'POST',
             headers: { 'content-type': 'application/json', accept: 'application/json' },
             body: JSON.stringify({ name: pluginName }),
+          })
+          await loadStatus()
+          void refreshUpdates(true)
+        } catch (failure) {
+          onOperationError(failure)
+        }
+      }
+
+      const toggleByName = async (pluginName, enabled) => {
+        setError(undefined)
+        try {
+          await api(TOGGLE_PATH, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ name: pluginName, enabled }),
           })
           await loadStatus()
         } catch (failure) {
@@ -809,6 +933,39 @@ window.__ModuleLoader__.load({
 
       const canPickFolder =
         typeof window.dshDesktopDirectoryPicker?.pick === 'function'
+
+      const installed = status?.installed || []
+      const byName = updates?.byName || {}
+      const lastOperation = status?.lastOperation
+      const updatedNames =
+        lastOperation && lastOperation.ok === true && Array.isArray(lastOperation.updated)
+          ? lastOperation.updated
+          : []
+
+      // One management list: installed plugins (local + cloud) plus saved
+      // repositories that are not installed yet — those rows carry the
+      // Install button, exactly like the market's catalog.
+      const rows = [
+        ...installed.map((plugin) => ({
+          plugin,
+          state: pluginState(plugin, byName, updatedNames),
+        })),
+        ...repos
+          .filter((repo) => !findInstalledBySpec(repo.spec, installed))
+          .map((repo) => ({
+            plugin: {
+              name: repo.label || repo.spec,
+              spec: repo.spec,
+              version: undefined,
+              description: undefined,
+              bundle: false,
+              self: false,
+              disabled: undefined,
+              repo,
+            },
+            state: 'notInstalled',
+          })),
+      ]
 
       return React.createElement(
         'section',
@@ -841,28 +998,23 @@ window.__ModuleLoader__.load({
           busy,
           t,
           onCheck: () => refreshUpdates(true),
-          onUpdate: updatePlugin,
         }),
-        React.createElement(PrivateRepos, {
-          repos,
+        React.createElement(ImportSource, {
           busy,
           t,
           onAdd: addRepo,
-          onInstall: installRepo,
-          onRemove: removeRepo,
-        }),
-        React.createElement(LocalImport, {
-          busy,
-          t,
           onUpload: upload,
           onPickFolder: pickFolder,
           canPickFolder,
         }),
         React.createElement(InstalledList, {
-          installed: status?.installed || [],
+          rows,
           busy,
           t,
-          onRemove: remove,
+          onInstall: (row) => installRepo(row.plugin.repo ?? { spec: row.plugin.spec }),
+          onUpdate: (row) => updatePlugin(row.plugin.name, updateSpecOf(row.plugin)),
+          onRemove: (row) => remove(row.plugin.name),
+          onToggle: (plugin, enabled) => toggleByName(plugin.name, enabled),
         }),
         restarting ? React.createElement(Spinner, { label: t('restarting') }) : null
       )
@@ -873,14 +1025,14 @@ window.__ModuleLoader__.load({
       installStyles()
       ctx.effect(
         () => ctx.locale.register(NS, { zh, en }),
-        'dsh-plugin-manager: copy dictionaries'
+        'dsh-private-plugins: copy dictionaries'
       )
       const t = ctx.locale.bind(NS)
       ctx.slots.inject('settings.section', () =>
         ctx.slots.register(
           {
             name: 'settings.section',
-            id: 'plugin-manager',
+            id: 'private-plugins',
             // Keep this immediately after dsh-market (order 40) when it is
             // installed, while remaining a clear first-class entry on its own.
             order: 41,
