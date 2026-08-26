@@ -1,11 +1,19 @@
 {
   "name": "dsh-private-plugins",
-  "version": "0.1.5",
+  "version": "1.0.0",
   "description": "Private plugin imports for DeepSeek Harness — import from private git repositories or local files (tarball upload / folder picker) from a first-class Settings entry. · DSH 私有插件：私有仓库 + 本地导入，设置内独立入口。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YINGCHAO-98/dsh-private-plugins.git"
+  },
+  "homepage": "https://github.com/YINGCHAO-98/dsh-private-plugins#readme",
+  "bugs": {
+    "url": "https://github.com/YINGCHAO-98/dsh-private-plugins/issues"
+  },
   "keywords": [
     "deepseek",
     "harness",

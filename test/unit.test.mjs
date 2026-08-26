@@ -400,10 +400,24 @@ test('lockfileCommit falls back to the legacy git+url#commit key form', () => {
   assert.equal(lockfileCommit(lockfile, 'dsh-skin-molly'), 'abc1234')
 })
 
+test('lockfileCommit reads the commit from pnpm github codeload importers', () => {
+  const lockfile = [
+    "lockfileVersion: '9.0'",
+    'importers:',
+    '  .:',
+    '    dependencies:',
+    '      dsh-skin-molly:',
+    '        specifier: github:YINGCHAO-98/dsh-skin-molly',
+    '        version: https://codeload.github.com/YINGCHAO-98/dsh-skin-molly/tar.gz/731e60a49164abed32f9b924795abafb30b1b7b4',
+    '',
+  ].join('\n')
+  assert.equal(lockfileCommit(lockfile, 'dsh-skin-molly'), '731e60a49164abed32f9b924795abafb30b1b7b4')
+})
+
 test('gitCloneUrl strips the pnpm git+ protocol prefix', () => {
   assert.equal(gitCloneUrl('git+file:///tmp/repo#main'), 'file:///tmp/repo')
   assert.equal(gitCloneUrl('git+https://github.com/me/repo.git#main'), 'https://github.com/me/repo.git')
-  assert.equal(gitCloneUrl('github:me/repo'), 'github:me/repo')
+  assert.equal(gitCloneUrl('github:me/repo'), 'https://github.com/me/repo.git')
 })
 
 test('local Git status identifies local worktrees and their dirty state', () => {
@@ -454,6 +468,38 @@ test('checkUpdates treats a linked Git worktree as already current', async () =>
       latest: 'dirty',
       current: '0.1.0',
     })
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('checkUpdates compares github shorthand sources against GitHub', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-github-update-'))
+  try {
+    writeFileSync(
+      join(dir, 'pnpm-lock.yaml'),
+      [
+        'importers:',
+        '  .:',
+        '    dependencies:',
+        '      dsh-skin-molly:',
+        '        specifier: github:YINGCHAO-98/dsh-skin-molly',
+        '        version: https://codeload.github.com/YINGCHAO-98/dsh-skin-molly/tar.gz/731e60a49164abed32f9b924795abafb30b1b7b4',
+      ].join('\n')
+    )
+    const summary = await checkUpdates(dir, {
+      force: true,
+      now: 1000,
+      installed: [{ name: 'dsh-skin-molly', spec: 'github:YINGCHAO-98/dsh-skin-molly', version: '0.1.0' }],
+      spawnSync: (file, args) => {
+        assert.equal(file, 'git')
+        assert.deepEqual(args, ['ls-remote', 'https://github.com/YINGCHAO-98/dsh-skin-molly.git', 'HEAD'])
+        return { status: 0, stdout: '9f83b6a9e2fe29199d9a21400e8cc46b5ea3f630\tHEAD\n' }
+      },
+    })
+    assert.equal(summary.updates.length, 1)
+    assert.equal(summary.updates[0].name, 'dsh-skin-molly')
+    assert.equal(summary.byName['dsh-skin-molly'].known, true)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

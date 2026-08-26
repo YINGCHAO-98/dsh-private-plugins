@@ -4,6 +4,8 @@
 
 > 社区维护的 DSH Plugin，与 DeepSeek AI 无隶属关系，也不代表 DeepSeek AI 官方。
 
+![私有插件管理界面](docs/images/private-plugins-overview.png)
+
 - 导入方式：**云端仓库** 与 **本地文件** 分别位于独立卡片——可添加公开/私有 Git 仓库（可选自定义名称）、上传 `.tgz / .tar.gz / .tar` 压缩包，或选择本地插件文件夹。
 - 已安装插件：**卡片式管理列表**（参考插件市场）——本地导入与云端仓库插件统一在这里展示，每张卡片提供：
   - **启用 / 停用**：写入 profile 的 `cordis.patch.yml` 补丁层，重启后生效；
@@ -29,10 +31,13 @@
 ### 手动命令
 
 ```sh
+# 直接从 GitHub 安装到 web profile（推荐）
+dsh plugin --profile web add github:YINGCHAO-98/dsh-private-plugins
+
 # 把本目录当作一个本地插件包装进 web profile
 dsh plugin --profile web add /absolute/path/to/dsh-private-plugins
 
-# 或按包名安装已发布的插件
+# 或按包名安装已发布到 npm 的插件
 dsh plugin --profile web add dsh-private-plugins
 ```
 
@@ -59,7 +64,7 @@ DSH Desktop 使用 `web` profile（`$DSH_HOME/profiles/web`，默认 `~/.dsh`）
 打开「私有插件」页面会自动检查由本页管理的插件更新（结果缓存 1 小时，可点「检查更新」强制刷新），有新版时对应插件行直接显示「更新」按钮，点击即更新为最新版本；插件市场安装的项目仅在「插件市场」内显示：
 
 - **npm 来源**（registry 安装）：查询本机配置的 npm registry（`npm_config_registry`，默认 npmjs.org）的 `dist-tags.latest`，与已装版本比较。
-- **git 来源**（私有仓库）：对比 `pnpm-lock.yaml` 里记录的已解析 commit 与 `git ls-remote` 的远端 HEAD/分支 commit。私有仓库若本机凭据不可用，显示「更新状态未知」，**不会误报**。
+- **git 来源**（私有仓库，含 `github:owner/repo`）：对比 `pnpm-lock.yaml` 里记录的已解析 commit 与 `git ls-remote` 的远端 HEAD/分支 commit。私有仓库若本机凭据不可用，显示「更新状态未知」，**不会误报**。
 - **本地来源**（`file:` / `link:`）：可识别 Git 工作区；`link:` 源码目录为实时链接，已直接生效。非 Git 本地来源显示「未知」。
 - 更新状态显示在各自插件卡片；更新完成后提示重启 Harness（桌面版可一键重启）。
 
