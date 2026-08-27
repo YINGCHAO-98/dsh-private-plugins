@@ -16,6 +16,8 @@ window.__ModuleLoader__.load({
     const REMOVE_PATH = '/dsh-private-plugins/remove'
     const TOGGLE_PATH = '/dsh-private-plugins/toggle'
     const UPDATES_PATH = '/dsh-private-plugins/updates'
+    const MARKET_INSTALLED_PATH = '/dsh-market/installed'
+    const MARKET_TOGGLE_PATH = '/dsh-market/toggle'
 
     const en = {
       nav: 'Private plugins',
@@ -55,6 +57,8 @@ window.__ModuleLoader__.load({
       disabledTag: 'Off',
       enable: 'Enable',
       disable: 'Disable',
+      enabling: 'Enabling…',
+      disabling: 'Disabling…',
       busy: 'An operation is running — this can take a few minutes. Keep the app open.',
       restartHint: 'Restart Harness to activate changes.',
       restart: 'Restart Harness',
@@ -111,6 +115,8 @@ window.__ModuleLoader__.load({
       disabledTag: '已停用',
       enable: '启用',
       disable: '停用',
+      enabling: '启用中…',
+      disabling: '停用中…',
       busy: '正在执行插件操作，可能需要几分钟，请保持应用打开。',
       restartHint: '重启 Harness 后生效。',
       restart: '重启 Harness',
@@ -156,7 +162,7 @@ window.__ModuleLoader__.load({
       .dshPmImportForm{flex-wrap:wrap}
       .dshPmInstalled{display:flex;flex-direction:column;gap:12px}
       .dshPmInstalledHead{display:flex;flex-direction:column;gap:4px}
-      .dshPmPluginGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      .dshPmPluginGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:12px}
       .dshPmPluginCard{box-sizing:border-box;min-width:0;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:border-color .16s,box-shadow .16s,transform .16s}
       .dshPmPluginCard:hover{border-color:var(--dsw-alias-border-l3);box-shadow:var(--dsw-shadow-lv1);transform:translateY(-1px)}
       .dshPmPluginFooter{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -221,8 +227,8 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function StatusStrip({ status, t, onRestart }) {
-      const operation = status?.lastOperation
+    function StatusStrip({ status, t, onRestart, hideOperation = false }) {
+      const operation = hideOperation ? undefined : status?.lastOperation
       const busy = status?.busy
       const elements = []
       if (busy) {
@@ -270,11 +276,12 @@ window.__ModuleLoader__.load({
             )
           )
         }
-      } else {
+      } else if (!hideOperation) {
         elements.push(
           React.createElement('span', { key: 'idle', className: 'dshPmMuted' }, t('idle'))
         )
       }
+      if (elements.length === 0) return null
       return React.createElement('div', { className: 'dshPmStatus' }, ...elements)
     }
 
@@ -344,18 +351,24 @@ window.__ModuleLoader__.load({
     }
 
     /** A standard action button, avoiding a custom switch visual. */
-    function EnableButton({ plugin, busy, active, t, onToggle }) {
-      if (typeof plugin.disabled !== 'boolean') return null
-      const off = plugin.disabled
+    function EnableButton({ pluginName, off, busy, active, t, onToggle }) {
+      if (typeof off !== 'boolean') return null
       return React.createElement(
         'button',
         {
           type: 'button',
+          'data-plugin-name': pluginName,
+          // `off` is the current disabled flag and therefore exactly the
+          // next enabled value: off -> enable(true), on -> disable(false).
+          'data-enabled': String(off),
           className: off ? 'dshPmButton dshPmPrimary' : 'dshPmButton dshPmSecondary',
           disabled: busy || active !== null,
-          onClick: () => onToggle(plugin, !off),
+          onClick: (event) => {
+            const target = event.currentTarget
+            onToggle(target.dataset.pluginName, target.dataset.enabled === 'true')
+          },
         },
-        off ? t('enable') : t('disable')
+        active === 'toggle' ? (off ? t('enabling') : t('disabling')) : (off ? t('enable') : t('disable'))
       )
     }
 
@@ -623,8 +636,9 @@ window.__ModuleLoader__.load({
      * cards. It contains local imports and private-repository installs, plus
      * saved repositories that have not been installed yet.
      */
-    function InstalledList({ rows, busy, t, onInstall, onUpdate, onRemove, onToggle }) {
+    function InstalledList({ rows, busy, status, t, onRestart, onInstall, onUpdate, onRemove, onToggle }) {
       const [busyRow, setBusyRow] = React.useState(null)
+      const toggleStatus = status?.lastOperation?.kind === 'toggle' ? status : undefined
       const run = async (action, row, key) => {
         setBusyRow({ key, action })
         try {
@@ -635,10 +649,10 @@ window.__ModuleLoader__.load({
           setBusyRow(null)
         }
       }
-      const toggle = async (plugin, enabled, key) => {
+      const toggle = async (pluginName, enabled, key) => {
         setBusyRow({ key, action: 'toggle' })
         try {
-          await onToggle(plugin, enabled)
+          await onToggle(pluginName, enabled)
         } finally {
           setBusyRow(null)
         }
@@ -652,6 +666,9 @@ window.__ModuleLoader__.load({
           React.createElement('h3', { className: 'dshPmCardTitle' }, t('installed')),
           React.createElement('p', { className: 'dshPmHint' }, t('installedHint'))
         ),
+        toggleStatus
+          ? React.createElement(StatusStrip, { status: toggleStatus, t, onRestart })
+          : null,
         rows.length === 0
           ? React.createElement('p', { className: 'dshPmHint' }, t('installedEmpty'))
           : React.createElement('div', { className: 'dshPmPluginGrid' }, rows.map((row) => {
@@ -679,9 +696,15 @@ window.__ModuleLoader__.load({
                       { className: 'dshPmTag' },
                       local ? t('sourceLocal') : t('sourceCloud')
                     ),
-                    plugin.disabled === true
-                      ? React.createElement('span', { className: 'dshPmTag' }, t('disabledTag'))
-                      : null,
+                    React.createElement(
+                      'span',
+                      {
+                        className: plugin.disabled === true
+                          ? 'dshPmTag'
+                          : 'dshPmTag dshPmTagAccent',
+                      },
+                      plugin.disabled === true ? t('disabledTag') : t('enabledTag')
+                    ),
                     plugin.self
                       ? React.createElement('span', { className: 'dshPmTag dshPmTagAccent' }, t('protectedTag'))
                       : null,
@@ -700,11 +723,12 @@ window.__ModuleLoader__.load({
                   plugin.self
                     ? null
                     : React.createElement(EnableButton, {
-                        plugin,
+                        pluginName: plugin.name,
+                        off: plugin.disabled,
                         busy,
                         active,
                         t,
-                        onToggle: (target, enabled) => void toggle(target, enabled, key),
+                        onToggle: (targetName, enabled) => void toggle(targetName, enabled, key),
                       }),
                   plugin.self
                     ? null
@@ -734,7 +758,28 @@ window.__ModuleLoader__.load({
 
       const loadStatus = React.useCallback(async () => {
         try {
-          const next = await api(STATUS_PATH)
+          let next = await api(STATUS_PATH)
+          // dsh-market owns the live toggle state in DSH Desktop. Its
+          // state.json is replayed at boot in addition to cordis.patch.yml,
+          // so the private-plugin page must include it or the two pages can
+          // show opposite states for the same package.
+          try {
+            const market = await api(MARKET_INSTALLED_PATH)
+            const disabled = new Set([
+              ...(Array.isArray(market.disabled) ? market.disabled : []),
+              ...(Array.isArray(market.patchDisabled) ? market.patchDisabled : []),
+            ])
+            next = {
+              ...next,
+              installed: (next.installed || []).map((plugin) => ({
+                ...plugin,
+                disabled: disabled.has(plugin.name),
+              })),
+            }
+          } catch {
+            // dsh-market is optional outside Desktop; the local patch-layer
+            // state returned by our own host remains the fallback.
+          }
           setStatus(next)
           setError(undefined)
         } catch (failure) {
@@ -904,13 +949,57 @@ window.__ModuleLoader__.load({
       const toggleByName = async (pluginName, enabled) => {
         setError(undefined)
         try {
-          await api(TOGGLE_PATH, {
+          const request = {
             method: 'POST',
             headers: { 'content-type': 'application/json', accept: 'application/json' },
             body: JSON.stringify({ name: pluginName, enabled }),
+          }
+          let result
+          let usedMarket = false
+          try {
+            // Use the same durable state + Cordis live-entry update as the
+            // official market. This prevents its state.json replay from
+            // undoing a private-page toggle on refresh or restart.
+            result = await api(MARKET_TOGGLE_PATH, request)
+            usedMarket = true
+          } catch (failure) {
+            if (failure?.status !== 404 && failure?.status !== 405) throw failure
+            result = await api(TOGGLE_PATH, request)
+          }
+          const disabled = usedMarket
+            ? Array.isArray(result.disabled) && result.disabled.includes(pluginName)
+            : result.disabled === true
+          const restartRequired = usedMarket ? result.restart === true : true
+          // Update the card immediately. This makes a successful click
+          // visible even when a just-restarted/stale host has not refreshed
+          // its status snapshot yet.
+          setStatus((current) => current === undefined ? current : {
+            ...current,
+            restartRequired: current.restartRequired === true || restartRequired,
+            lastOperation: {
+              kind: 'toggle',
+              ok: true,
+              label: `${enabled ? 'Enable' : 'Disable'} ${pluginName}`,
+              added: [],
+              updated: [],
+              detail: enabled
+                ? (restartRequired ? 'Enabled — restart to activate.' : 'Enabled and applied live.')
+                : (restartRequired ? 'Disabled — restart to apply.' : 'Disabled and applied live.'),
+              at: Date.now(),
+              restartRequired,
+            },
+            installed: (current.installed || []).map((plugin) =>
+              plugin.name === pluginName ? { ...plugin, disabled } : plugin
+            ),
           })
-          await loadStatus()
+          // Match dsh-market's installed-card flow: keep the page alive so
+          // the switch and activation result remain visible. `refresh` is a
+          // recommendation, not permission to reload the whole settings UI.
+          if (!usedMarket) {
+            void loadStatus()
+          }
         } catch (failure) {
+          if (failure?.status === 404 || failure?.status === 405) setHostStale(true)
           onOperationError(failure)
         }
       }
@@ -992,7 +1081,12 @@ window.__ModuleLoader__.load({
         error
           ? React.createElement('p', { className: 'dshPmDetail dshPmError' }, error)
           : null,
-        React.createElement(StatusStrip, { status, t, onRestart: restart }),
+        React.createElement(StatusStrip, {
+          status,
+          t,
+          onRestart: restart,
+          hideOperation: status?.lastOperation?.kind === 'toggle',
+        }),
         React.createElement(UpdatesSection, {
           updates,
           busy,
@@ -1010,11 +1104,13 @@ window.__ModuleLoader__.load({
         React.createElement(InstalledList, {
           rows,
           busy,
+          status,
           t,
+          onRestart: restart,
           onInstall: (row) => installRepo(row.plugin.repo ?? { spec: row.plugin.spec }),
           onUpdate: (row) => updatePlugin(row.plugin.name, updateSpecOf(row.plugin)),
           onRemove: (row) => remove(row.plugin.name),
-          onToggle: (plugin, enabled) => toggleByName(plugin.name, enabled),
+          onToggle: toggleByName,
         }),
         restarting ? React.createElement(Spinner, { label: t('restarting') }) : null
       )

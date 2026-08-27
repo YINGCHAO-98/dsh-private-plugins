@@ -61,6 +61,13 @@ import {
   patchFilePath,
 } from '../lib/toggle.js'
 
+test('toggle button sends the current disabled flag as the next enabled state', () => {
+  const client = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8')
+  assert.match(client, /'data-enabled': String\(off\)/u)
+  assert.doesNotMatch(client, /'data-enabled': String\(!off\)/u)
+  assert.match(client, /repeat\(auto-fit,minmax\(min\(280px,100%\),1fr\)\)/u)
+})
+
 test('isCloudSpec accepts npm names, pinned ranges and github sources', () => {
   for (const spec of [
     'dsh-dream-skin',
@@ -662,7 +669,7 @@ test('readPatchState parses disables, force-enables and inserts', () => {
         '- id: dsh-b',
         '  disabled: false',
         '- insert:',
-        '    - id: dsh-c',
+        '    - id: "dsh-c" # inserted by a bundle',
         '      name: dsh-c',
       ].join('\n')
     )
@@ -683,7 +690,8 @@ test('readPatchState parses disables, force-enables and inserts', () => {
 test('rowIdsForPackage reads inserted ids and falls back to the package name', () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-rows-'))
   try {
-    // Declared bundle patch with two inserted rows.
+    // Declared bundle patch with quoted/unquoted ids and a duplicate also
+    // present in the conventional patch path.
     mkdirSync(join(dir, 'node_modules', 'dsh-plug'), { recursive: true })
     writeFileSync(
       join(dir, 'node_modules', 'dsh-plug', 'package.json'),
@@ -691,7 +699,7 @@ test('rowIdsForPackage reads inserted ids and falls back to the package name', (
     )
     writeFileSync(
       join(dir, 'node_modules', 'dsh-plug', 'patch.yml'),
-      '- insert:\n    - id: dsh-plug\n    - id: dsh-plug-extra\n'
+      '- insert:\n    - id: "dsh-plug"\n    - id: \'dsh-plug-extra\' # auxiliary row\n'
     )
     assert.deepEqual(rowIdsForPackage(dir, 'dsh-plug'), ['dsh-plug', 'dsh-plug-extra'])
 
@@ -752,6 +760,29 @@ test('setPluginEnabled toggles the profile patch layer idempotently', async () =
     // Idempotent enable.
     await setPluginEnabled(dir, 'dsh-plug', true)
     assert.equal(isPluginDisabled(dir, 'dsh-plug'), false)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('setPluginEnabled clears a configured or quoted disable without dropping config', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-pm-toggle-config-'))
+  try {
+    mkdirSync(join(dir, 'node_modules', 'dsh-plug'), { recursive: true })
+    writeFileSync(join(dir, 'node_modules', 'dsh-plug', 'package.json'), JSON.stringify({ name: 'dsh-plug' }))
+    const file = patchFilePath(dir)
+    writeFileSync(
+      file,
+      ['- id: "dsh-plug"', '  config:', '    theme: dark', '  disabled: true', ''].join('\n')
+    )
+
+    assert.equal(isPluginDisabled(dir, 'dsh-plug'), true)
+    const result = await setPluginEnabled(dir, 'dsh-plug', true)
+    const text = readFileSync(file, 'utf8')
+    assert.equal(result.ok, true)
+    assert.equal(isPluginDisabled(dir, 'dsh-plug'), false)
+    assert.match(text, /config:\n    theme: dark/)
+    assert.doesNotMatch(text, /disabled: true/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
