@@ -33,6 +33,8 @@
 
 ### 手动命令
 
+所有用户都可以直接运行下面的命令，从 GitHub 安装本插件（公开仓库无需填写 Token）：
+
 ```sh
 # 直接从 GitHub 安装到当前使用的 profile（推荐）
 dsh plugin --profile desktop add github:YINGCHAO-98/dsh-private-plugins
