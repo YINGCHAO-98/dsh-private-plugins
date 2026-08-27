@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
 # dsh-private-plugins - one-click install / reinstall helper
-# 一键安装 / 重装脚本：自动探测 DSH Desktop 的 web profile 与 dsh CLI。
+# 一键安装 / 重装脚本：自动探测 DSH Desktop 当前 profile 与 dsh CLI。
 #
 # Usage / 用法:
 #   ./scripts/install.sh                     interactive choice when several profiles exist
 #   ./scripts/install.sh --all               install into every detected profile
 #   ./scripts/install.sh --home <DSH_HOME>   install into a specific DSH_HOME (parent of profiles)
+#   ./scripts/install.sh --profile <name>   install into a specific profile (default: active profile)
 #   ./scripts/install.sh --reinstall         remove first if already installed, then reinstall
 #   ./scripts/install.sh --check             print detected setup only, change nothing
 #   ./scripts/install.sh --dsh <path>        point at a specific dsh executable
@@ -17,13 +18,32 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROFILE_NAME="web"
+PROFILE_NAME=""
 PLUGIN_NAME="dsh-private-plugins"
 
 MODE="interactive"   # interactive | all | check
 REINSTALL=0
 DSH_BIN=""
 DSH_HOME_OVERRIDE=""
+
+# DSH Desktop stores the selected profile outside DSH_HOME. Older releases
+# used `web`, while current Desktop builds commonly select `desktop`.
+detect_active_profile() {
+  local state active
+  for state in \
+    "$HOME/Library/Application Support/DSH Desktop/profile-selection/state.json" \
+    "$HOME/Library/Application Support/dsh-desktop/profile-selection/state.json" \
+    "$HOME/Library/Application Support/dsh-desktop-dev/profile-selection/state.json"; do
+    if [[ -f "$state" ]]; then
+      active="$(sed -nE 's/.*"active"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$state" | head -n 1)"
+      if [[ -n "$active" ]]; then
+        echo "$active"
+        return
+      fi
+    fi
+  done
+  echo "web"
+}
 
 usage() {
   sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
@@ -36,11 +56,16 @@ while [[ $# -gt 0 ]]; do
     --check) MODE="check"; shift ;;
     --reinstall) REINSTALL=1; shift ;;
     --home) DSH_HOME_OVERRIDE="$2"; shift 2 ;;
+    --profile) PROFILE_NAME="$2"; shift 2 ;;
     --dsh) DSH_BIN="$2"; shift 2 ;;
     -h|--help) usage 0 ;;
     *) echo "unknown argument: $1" >&2; usage 1 ;;
   esac
 done
+
+if [[ -z "$PROFILE_NAME" ]]; then
+  PROFILE_NAME="$(detect_active_profile)"
+fi
 
 # ---------- locate the dsh CLI ----------
 detect_dsh() {
@@ -53,7 +78,17 @@ detect_dsh() {
   candidates+=("$(dirname "$PLUGIN_DIR")/dsh-desktop/node_modules/.bin/dsh")
   candidates+=("$PLUGIN_DIR/node_modules/.bin/dsh")
   candidates+=("$PLUGIN_DIR/../node_modules/.bin/dsh")
-  local c
+  # Current macOS DSH Desktop bundles the CLI under a versioned directory
+  # whose name is not stable between updates.
+  local cli_dir c
+  for cli_dir in \
+    "$HOME/Library/Application Support/DSH Desktop/cli" \
+    "$HOME/Library/Application Support/dsh-desktop/cli" \
+    "$HOME/Library/Application Support/dsh-desktop-dev/cli"; do
+    for c in "$cli_dir"/*/bin/dsh; do
+      candidates+=("$c")
+    done
+  done
   for c in "${candidates[@]}"; do
     if [[ -x "$c" ]]; then
       echo "$c"
@@ -72,6 +107,10 @@ detect_dsh() {
 # ---------- locate existing profiles (macOS paths; Windows users pass --home) ----------
 detect_homes() {
   local h
+  if [[ -n "${DSH_HOME:-}" && -d "$DSH_HOME/profiles/$PROFILE_NAME" ]]; then
+    echo "$DSH_HOME"
+    return
+  fi
   for h in \
     "$HOME/Library/Application Support/dsh-desktop/harness" \
     "$HOME/Library/Application Support/dsh-desktop-dev/harness" \

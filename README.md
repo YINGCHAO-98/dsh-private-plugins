@@ -26,24 +26,25 @@
 ./dsh-private-plugins/scripts/install.sh --check    # 只打印检测结果
 ./dsh-private-plugins/scripts/install.sh --reinstall   # 已安装则先移除再重装
 ./dsh-private-plugins/scripts/install.sh --home <DSH_HOME>   # 指定 DSH_HOME
+./dsh-private-plugins/scripts/install.sh --profile <name>   # 指定 profile（如 desktop / web）
 ```
 
-脚本会自动探测 dsh CLI（优先用相邻的 `dsh-desktop/node_modules/.bin/dsh`）和 macOS 上常见的 profile（正式版 `dsh-desktop`、dev 版 `dsh-desktop-dev`、`~/.dsh`）。Windows 请用 `--home` 指定 DSH_HOME。
+脚本会自动探测 dsh CLI，并读取 DSH Desktop 当前激活的 profile（例如 `desktop`；旧版本可能是 `web`）。也可用 `--profile desktop` 或 `--profile web` 显式指定。macOS 上会探测正式版、dev 版和 `~/.dsh`；Windows 请用 `--home` 指定 DSH_HOME。
 
 ### 手动命令
 
 ```sh
-# 直接从 GitHub 安装到 web profile（推荐）
-dsh plugin --profile web add github:YINGCHAO-98/dsh-private-plugins
+# 直接从 GitHub 安装到当前使用的 profile（推荐）
+dsh plugin --profile desktop add github:YINGCHAO-98/dsh-private-plugins
 
-# 把本目录当作一个本地插件包装进 web profile
-dsh plugin --profile web add /absolute/path/to/dsh-private-plugins
+# 把本目录当作一个本地插件包装进当前 profile
+dsh plugin --profile desktop add /absolute/path/to/dsh-private-plugins
 
 # 或按包名安装已发布到 npm 的插件
-dsh plugin --profile web add dsh-private-plugins
+dsh plugin --profile desktop add dsh-private-plugins
 ```
 
-DSH Desktop 使用 `web` profile（`$DSH_HOME/profiles/web`，默认 `~/.dsh`），装完后从菜单 **Harness → 重启 Harness** 生效。打开 **设置 → 私有插件** 即可使用；安装了 `dsh-market` 时，该入口紧随「插件市场」。
+DSH Desktop 使用当前选中的 profile（通常为 `$DSH_HOME/profiles/desktop`，旧版本可能为 `web`；默认 `DSH_HOME=~/.dsh`），装完后从菜单 **Harness → 重启 Harness** 生效。打开 **设置 → 私有插件** 即可使用；安装了 `dsh-market` 时，该入口紧随「插件市场」。
 
 ## 私有仓库支持
 
@@ -97,7 +98,7 @@ dsh-private-plugins/
 ## 开发与测试
 
 ```sh
-node --test test/
+node --test test/unit.test.mjs
 ```
 
 浏览器端 `client.js` 是手写的 `window.__ModuleLoader__.load({ id, factory })` 格式，无需构建；宿主端为纯 ESM、零运行时依赖。
