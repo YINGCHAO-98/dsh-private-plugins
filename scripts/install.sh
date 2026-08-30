@@ -11,15 +11,24 @@
 #   ./scripts/install.sh --reinstall         remove first if already installed, then reinstall
 #   ./scripts/install.sh --check             print detected setup only, change nothing
 #   ./scripts/install.sh --dsh <path>        point at a specific dsh executable
+#   ./scripts/install.sh --remote             install directly from this GitHub repository
+#   ./scripts/install.sh --source <spec>      install a custom npm/git/path spec
 #
 # After installing, restart Harness (Harness > Restart Harness) to activate.
 # 装完后重启 Harness（菜单 Harness -> 重启 Harness）生效。
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  # curl .../install.sh | bash has no filesystem-backed BASH_SOURCE.
+  SCRIPT_DIR="$PWD"
+fi
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROFILE_NAME=""
 PLUGIN_NAME="dsh-private-plugins"
+REMOTE_SPEC="git+https://github.com/YINGCHAO-98/dsh-private-plugins.git"
+PLUGIN_SOURCE="$PLUGIN_DIR"
 
 MODE="interactive"   # interactive | all | check
 REINSTALL=0
@@ -58,14 +67,12 @@ while [[ $# -gt 0 ]]; do
     --home) DSH_HOME_OVERRIDE="$2"; shift 2 ;;
     --profile) PROFILE_NAME="$2"; shift 2 ;;
     --dsh) DSH_BIN="$2"; shift 2 ;;
+    --remote) PLUGIN_SOURCE="$REMOTE_SPEC"; shift ;;
+    --source) PLUGIN_SOURCE="$2"; shift 2 ;;
     -h|--help) usage 0 ;;
     *) echo "unknown argument: $1" >&2; usage 1 ;;
   esac
 done
-
-if [[ -z "$PROFILE_NAME" ]]; then
-  PROFILE_NAME="$(detect_active_profile)"
-fi
 
 # ---------- locate the dsh CLI ----------
 detect_dsh() {
@@ -75,6 +82,10 @@ detect_dsh() {
     return
   fi
   local candidates=()
+  # Prefer the CLI shipped in the currently installed Desktop app. Cached
+  # launchers can retain stale app.asar paths after a Desktop upgrade.
+  candidates+=("/Applications/DSH Desktop.app/Contents/Resources/app/node_modules/@deepseek-ai/dsh/lib/bin.js")
+  candidates+=("/Applications/DSH Desktop Dev.app/Contents/Resources/app/node_modules/@deepseek-ai/dsh/lib/bin.js")
   candidates+=("$(dirname "$PLUGIN_DIR")/dsh-desktop/node_modules/.bin/dsh")
   candidates+=("$PLUGIN_DIR/node_modules/.bin/dsh")
   candidates+=("$PLUGIN_DIR/../node_modules/.bin/dsh")
@@ -107,6 +118,10 @@ detect_dsh() {
 # ---------- locate existing profiles (macOS paths; Windows users pass --home) ----------
 detect_homes() {
   local h
+  if [[ -n "$DSH_HOME_OVERRIDE" && -d "$DSH_HOME_OVERRIDE/profiles/$PROFILE_NAME" ]]; then
+    echo "$DSH_HOME_OVERRIDE"
+    return
+  fi
   if [[ -n "${DSH_HOME:-}" && -d "$DSH_HOME/profiles/$PROFILE_NAME" ]]; then
     echo "$DSH_HOME"
     return
@@ -120,6 +135,47 @@ detect_homes() {
     fi
   done
 }
+
+# The Desktop UI selection and the Harness on disk can temporarily disagree
+# (notably Desktop 2.x may report "desktop" while launching profile "web").
+# Prefer a profile that actually exists in a detected DSH_HOME.
+resolve_profile_name() {
+  if [[ -n "$PROFILE_NAME" ]]; then
+    echo "$PROFILE_NAME"
+    return
+  fi
+  local selected h
+  selected="$(detect_active_profile)"
+
+  # An explicit DSH_HOME wins. Otherwise prefer the Desktop-owned Harness
+  # before ~/.dsh, because both can exist while only the former is running.
+  for h in \
+    "$DSH_HOME_OVERRIDE" \
+    "${DSH_HOME:-}" \
+    "$HOME/Library/Application Support/dsh-desktop/harness" \
+    "$HOME/Library/Application Support/dsh-desktop-dev/harness"; do
+    [[ -n "$h" ]] || continue
+    if [[ -d "$h/profiles/$selected" ]]; then
+      echo "$selected"
+      return
+    fi
+    if [[ -d "$h/profiles/web" ]]; then
+      echo "web"
+      return
+    fi
+  done
+  if [[ -d "$HOME/.dsh/profiles/$selected" ]]; then
+    echo "$selected"
+    return
+  fi
+  if [[ -d "$HOME/.dsh/profiles/web" ]]; then
+    echo "web"
+    return
+  fi
+  echo "$selected"
+}
+
+PROFILE_NAME="$(resolve_profile_name)"
 
 installed_in() {
   local home="$1"
@@ -135,7 +191,7 @@ run_install() {
     echo "==> already installed; removing first (--reinstall)"
     DSH_HOME="$home" CI=true NO_COLOR=1 "$dsh" plugin --profile "$PROFILE_NAME" remove "$PLUGIN_NAME" || true
   fi
-  DSH_HOME="$home" CI=true NO_COLOR=1 "$dsh" plugin --profile "$PROFILE_NAME" add "$PLUGIN_DIR"
+  DSH_HOME="$home" CI=true NO_COLOR=1 "$dsh" plugin --profile "$PROFILE_NAME" add "$PLUGIN_SOURCE"
   if installed_in "$home"; then
     echo "==> OK: $PLUGIN_NAME installed into $home/profiles/$PROFILE_NAME"
   else
@@ -151,14 +207,40 @@ if [[ -z "$DSH_BIN" ]]; then
   exit 1
 fi
 echo "dsh CLI   : $DSH_BIN"
-echo "plugin dir: $PLUGIN_DIR"
+echo "source    : $PLUGIN_SOURCE"
 
 # The dsh CLI resolves pnpm from PATH. The profiles were built with the
 # pnpm bundled next to dsh (dsh-desktop node_modules), so prepend that bin
 # directory: a PATH pnpm from another source (corepack, a global v9, ...)
 # would fail with ERR_PNPM_UNEXPECTED_STORE because its store layout differs.
 DSH_BIN_DIR="$(dirname "$DSH_BIN")"
-if [[ -x "$DSH_BIN_DIR/pnpm" ]]; then
+PNPM_SHIM_DIR=""
+cleanup() {
+  if [[ -n "$PNPM_SHIM_DIR" && -d "$PNPM_SHIM_DIR" ]]; then
+    rm -rf "$PNPM_SHIM_DIR"
+  fi
+}
+trap cleanup EXIT
+
+# Desktop profiles must be managed with Desktop's pnpm major. A global dsh
+# can otherwise pick pnpm 11 for node_modules created by pnpm 10 and fail with
+# ERR_PNPM_UNEXPECTED_STORE. Put the app-bundled pnpm in a temporary PATH shim.
+DESKTOP_PNPM=""
+for candidate in \
+  "/Applications/DSH Desktop.app/Contents/Resources/app/node_modules/pnpm/bin/pnpm.cjs" \
+  "/Applications/DSH Desktop Dev.app/Contents/Resources/app/node_modules/pnpm/bin/pnpm.cjs"; do
+  if [[ -x "$candidate" ]]; then
+    DESKTOP_PNPM="$candidate"
+    break
+  fi
+done
+
+if [[ -n "$DESKTOP_PNPM" ]]; then
+  PNPM_SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dsh-private-plugins.XXXXXX")"
+  ln -s "$DESKTOP_PNPM" "$PNPM_SHIM_DIR/pnpm"
+  export PATH="$PNPM_SHIM_DIR:$PATH"
+  echo "pnpm      : $DESKTOP_PNPM (Desktop bundled; compatibility shim)"
+elif [[ -x "$DSH_BIN_DIR/pnpm" ]]; then
   export PATH="$DSH_BIN_DIR:$PATH"
   echo "pnpm      : $DSH_BIN_DIR/pnpm (bundled; prepended to PATH)"
 else

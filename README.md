@@ -20,6 +20,14 @@
 
 ### 一键脚本（推荐）
 
+无需克隆仓库，直接从 GitHub 安装；脚本会识别 Desktop 实际使用的 `DSH_HOME`、`web` / `desktop` profile 和匹配的 pnpm 主版本：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/YINGCHAO-98/dsh-private-plugins/main/scripts/install.sh | bash -s -- --remote
+```
+
+已经下载本仓库时，也可以安装当前本地代码：
+
 ```sh
 ./dsh-private-plugins/scripts/install.sh            # 有多个 profile 时交互选择
 ./dsh-private-plugins/scripts/install.sh --all      # 装进所有检测到的 profile
@@ -29,24 +37,25 @@
 ./dsh-private-plugins/scripts/install.sh --profile <name>   # 指定 profile（如 desktop / web）
 ```
 
-脚本会自动探测 dsh CLI，并读取 DSH Desktop 当前激活的 profile（例如 `desktop`；旧版本可能是 `web`）。也可用 `--profile desktop` 或 `--profile web` 显式指定。macOS 上会探测正式版、dev 版和 `~/.dsh`；Windows 请用 `--home` 指定 DSH_HOME。
+脚本会自动探测 dsh CLI，并读取 DSH Desktop 实际存在的 profile（例如 `desktop` 或 `web`）。它优先使用 Desktop 自带的 pnpm，避免全局 pnpm 主版本不同导致 `ERR_PNPM_UNEXPECTED_STORE`。也可用 `--profile desktop` 或 `--profile web` 显式指定。macOS 上会探测正式版、dev 版和 `~/.dsh`；Windows 请用 `--home` 指定 DSH_HOME。
 
 ### 手动命令
 
-所有用户都可以直接运行下面的命令，从 GitHub 安装本插件（公开仓库无需填写 Token）：
+所有用户都可以直接复制下面的命令，从 GitHub 安装本插件（公开仓库无需填写 Token）：
 
 ```sh
-# 直接从 GitHub 安装到当前使用的 profile（推荐）
-dsh plugin --profile desktop add github:YINGCHAO-98/dsh-private-plugins
+# 仅当已确认 DSH_HOME、profile 和 pnpm 版本匹配时使用
+dsh plugin --profile web add "git+https://github.com/YINGCHAO-98/dsh-private-plugins.git"
 
-# 把本目录当作一个本地插件包装进当前 profile
-dsh plugin --profile desktop add /absolute/path/to/dsh-private-plugins
+# 独立 CLI 使用 ~/.dsh/profiles/desktop 时
+dsh plugin --profile desktop add "git+https://github.com/YINGCHAO-98/dsh-private-plugins.git"
 
-# 或按包名安装已发布到 npm 的插件
-dsh plugin --profile desktop add dsh-private-plugins
+# 在本项目根目录执行：安装当前本地代码（macOS Desktop 开发调试用）
+DSH_HOME="$HOME/Library/Application Support/dsh-desktop/harness" \
+  dsh plugin --profile web add "$PWD"
 ```
 
-DSH Desktop 使用当前选中的 profile（通常为 `$DSH_HOME/profiles/desktop`，旧版本可能为 `web`；默认 `DSH_HOME=~/.dsh`），装完后从菜单 **Harness → 重启 Harness** 生效。打开 **设置 → 私有插件** 即可使用；安装了 `dsh-market` 时，该入口紧随「插件市场」。
+手动命令要求当前终端已经使用正确的 `DSH_HOME` 和 pnpm 主版本，因此普通用户应优先使用上面的一键脚本。安装完成后，从菜单 **Harness → 重启 Harness**，然后打开 **设置 → 私有插件** 即可使用；安装了 `dsh-market` 时，该入口紧随「插件市场」。
 
 ## 私有仓库支持
 
