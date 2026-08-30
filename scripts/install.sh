@@ -32,6 +32,7 @@ PLUGIN_SOURCE="$PLUGIN_DIR"
 
 MODE="interactive"   # interactive | all | check
 REINSTALL=0
+REMOTE_INSTALL=0
 DSH_BIN=""
 DSH_HOME_OVERRIDE=""
 
@@ -67,7 +68,7 @@ while [[ $# -gt 0 ]]; do
     --home) DSH_HOME_OVERRIDE="$2"; shift 2 ;;
     --profile) PROFILE_NAME="$2"; shift 2 ;;
     --dsh) DSH_BIN="$2"; shift 2 ;;
-    --remote) PLUGIN_SOURCE="$REMOTE_SPEC"; shift ;;
+    --remote) PLUGIN_SOURCE="$REMOTE_SPEC"; REMOTE_INSTALL=1; shift ;;
     --source) PLUGIN_SOURCE="$2"; shift 2 ;;
     -h|--help) usage 0 ;;
     *) echo "unknown argument: $1" >&2; usage 1 ;;
@@ -279,6 +280,11 @@ else
     exit 1
   elif [[ ${#TARGETS[@]} -eq 1 ]]; then
     echo "single profile detected; installing"
+  elif [[ "$REMOTE_INSTALL" == "1" ]]; then
+    # Remote one-liner installs should require no profile-location knowledge.
+    # detect_homes lists the Desktop-owned Harness before ~/.dsh.
+    echo "multiple profiles detected; preferring DSH Desktop: ${TARGETS[0]}"
+    TARGETS=("${TARGETS[0]}")
   else
     echo "multiple profiles detected; pick a DSH_HOME:"
     for i in "${!TARGETS[@]}"; do
